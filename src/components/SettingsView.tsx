@@ -104,7 +104,7 @@ export default function SettingsView({
         )}
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      <div className="space-y-6">
         {/* Section 1: Clinic Profile */}
         <div className="bg-white p-6 rounded-2xl border border-[#e3eaf6] shadow-xs space-y-5">
           <div className="flex items-center gap-3 pb-4 border-b border-[#e3eaf6]">
@@ -297,13 +297,14 @@ export default function SettingsView({
         {/* Save Bar */}
         <div className="flex justify-end pt-2">
           <button 
-            type="submit" 
+            type="button" 
+            onClick={handleSave}
             className="btn btn-primary px-8 py-3.5 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-md"
           >
             <Save size={16} /> Save Changes
           </button>
         </div>
-      </form>
+      </div>
 
       {/* Section 5: Danger Zone (Account Deletion) */}
       <div className="bg-white p-6 rounded-2xl border border-red-200 shadow-xs space-y-4">
