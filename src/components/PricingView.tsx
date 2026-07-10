@@ -11,6 +11,7 @@ interface PricingViewProps {
 
 export default function PricingView({ onNavigate, isAuthenticated = false, currentPlan = 'solo', onSelectPlan }: PricingViewProps) {
   const [annualBilling, setAnnualBilling] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const getPrice = (monthly: number) => {
     if (annualBilling) {
@@ -114,6 +115,63 @@ export default function PricingView({ onNavigate, isAuthenticated = false, curre
         .homepage-root .foot-col a { display: block; font-size: 14.5px; color: var(--ink); margin-bottom: 12px; transition: color .2s; cursor: pointer; }
         .homepage-root .foot-col a:hover { color: var(--sky); }
         .homepage-root .foot-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 32px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-soft); flex-wrap: wrap; gap: 16px; }
+
+        .faq-list {
+          max-width: 800px;
+          margin: 48px auto 0;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .faq-item {
+          background: var(--paper);
+          border: 1px solid var(--line);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+          transition: border-color .2s ease, box-shadow .2s ease;
+        }
+        .faq-item.active {
+          border-color: var(--sky);
+          background: var(--white);
+          box-shadow: var(--shadow-sm);
+        }
+        .faq-question {
+          width: 100%;
+          text-align: left;
+          padding: 22px 24px;
+          font-size: 17px;
+          font-weight: 600;
+          color: var(--ink);
+          background: none;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+        .faq-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: var(--panel);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: transform .3s ease, background .3s ease, color .3s ease;
+        }
+        .faq-item.active .faq-icon {
+          background: var(--sky);
+          color: white;
+          transform: rotate(45deg);
+        }
+        .faq-answer {
+          padding: 0 24px 24px 24px;
+          font-size: 15px;
+          line-height: 1.7;
+          color: var(--ink-soft);
+        }
       `}} />
 
       {/* Navigation Bar */}
@@ -351,6 +409,65 @@ export default function PricingView({ onNavigate, isAuthenticated = false, curre
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* ================= FAQ SECTION ================= */}
+      <section className="section pb-24" id="faq">
+        <div className="wrap">
+          <div className="sec-head reveal text-center max-w-2xl mx-auto mb-12">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#0057D9] bg-[#eef3fb] px-3.5 py-1.5 rounded-full inline-block mb-3">FAQ</span>
+            <h2 className="text-3xl font-bold text-[#04044A] tracking-tight">Frequently asked questions</h2>
+            <p className="text-sm text-[#3c4372] mt-2">Everything you need to know about DrVetly pricing, plans, free trial, and billing.</p>
+          </div>
+          <div className="faq-list reveal">
+            {[
+              {
+                q: "How does DrVetly's AI SOAP note generator work?",
+                a: "DrVetly listens to your consultation or takes rough voice dictation, instantly drafting comprehensive Subjective, Objective, Assessment, and Plan notes. You review, edit if needed, and sign off in under 5 seconds with zero typing after hours."
+              },
+              {
+                q: "Can I switch plans or cancel my subscription at any time?",
+                a: "Yes. There are no long-term contracts. You can upgrade, downgrade, or cancel your Solo or Hyper Clinic plan at any time directly from your billing settings."
+              },
+              {
+                q: "Is patient and client data secure and compliant?",
+                a: "Absolutely. All data is encrypted in transit and at rest using bank-grade 256-bit AES encryption, hosted on secure HIPAA-aligned cloud infrastructure with automated hourly backups."
+              },
+              {
+                q: "How does the 7-day free trial work?",
+                a: "You can start any plan instantly with zero credit card required. You get full access to scheduling, AI notes, reminders, and client communication tools for 7 days."
+              },
+              {
+                q: "Can multiple veterinarians and staff members use DrVetly simultaneously?",
+                a: "Yes. DrVetly supports unlimited staff accounts with customizable role-based permissions (Veterinarians, Veterinary Technicians, Front Desk, Practice Manager) so everyone sees what they need."
+              },
+              {
+                q: "What payment methods do you accept?",
+                a: "We accept all major credit cards including Visa, Mastercard, American Express, and Discover through secure Stripe processing. Annual billing also qualifies for a 20% discount."
+              }
+            ].map((faq, index) => {
+              const isOpen = openFaq === index;
+              return (
+                <div key={index} className={`faq-item ${isOpen ? 'active' : ''}`}>
+                  <button 
+                    className="faq-question" 
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                  >
+                    <span>{faq.q}</span>
+                    <div className="faq-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="faq-answer">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

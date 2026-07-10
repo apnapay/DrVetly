@@ -9,6 +9,7 @@ export default function Homepage({ onNavigate }: HomepageProps) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [typewriteText, setTypewriteText] = useState('');
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const soapText = "S: Owner reports mild limping on left hind leg since Tuesday, no known trauma. O: Mild swelling at left stifle, full range of motion, no pain on hip palpation. A: Suspected mild stifle strain, hip involvement unlikely. P: Rest 10 days, NSAID course, recheck if no improvement.";
 
@@ -74,6 +75,63 @@ export default function Homepage({ onNavigate }: HomepageProps) {
           --radius: 20px;
           --radius-sm: 12px;
           --ease: cubic-bezier(.16,.84,.28,1);
+        }
+
+        .faq-list {
+          max-width: 800px;
+          margin: 48px auto 0;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .faq-item {
+          background: var(--paper);
+          border: 1px solid var(--line);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+          transition: border-color .2s ease, box-shadow .2s ease;
+        }
+        .faq-item.active {
+          border-color: var(--sky);
+          background: var(--white);
+          box-shadow: var(--shadow-sm);
+        }
+        .faq-question {
+          width: 100%;
+          text-align: left;
+          padding: 22px 24px;
+          font-size: 17px;
+          font-weight: 600;
+          color: var(--ink);
+          background: none;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+        .faq-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: var(--panel);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: transform .3s ease, background .3s ease, color .3s ease;
+        }
+        .faq-item.active .faq-icon {
+          background: var(--sky);
+          color: white;
+          transform: rotate(45deg);
+        }
+        .faq-answer {
+          padding: 0 24px 24px 24px;
+          font-size: 15px;
+          line-height: 1.7;
+          color: var(--ink-soft);
         }
 
         .homepage-root .wrap {
@@ -820,8 +878,67 @@ export default function Homepage({ onNavigate }: HomepageProps) {
         </div>
       </section>
 
-      {/* ================= FINAL CTA ================= */}
+      {/* ================= FAQ SECTION ================= */}
       <section className="section" id="faq">
+        <div className="wrap">
+          <div className="sec-head reveal text-center max-w-2xl mx-auto">
+            <span className="sec-eyebrow">FAQ</span>
+            <h2>Frequently asked questions</h2>
+            <p>Everything you need to know about DrVetly, AI SOAP notes, clinic onboarding, and pricing.</p>
+          </div>
+          <div className="faq-list reveal">
+            {[
+              {
+                q: "How does DrVetly's AI SOAP note generator work?",
+                a: "DrVetly listens to your consultation or takes rough voice dictation, instantly drafting comprehensive Subjective, Objective, Assessment, and Plan notes. You review, edit if needed, and sign off in under 5 seconds with zero typing after hours."
+              },
+              {
+                q: "Can I import my existing patient records and client history from my current PIMS?",
+                a: "Yes! DrVetly offers seamless migration support from legacy software like Cornerstone, Impromed, Avimark, or paper files. Our onboarding team assists you so all multi-pet households and medical histories are live before day one."
+              },
+              {
+                q: "Is patient and client data secure and compliant?",
+                a: "Absolutely. All data is encrypted in transit and at rest using bank-grade 256-bit AES encryption, hosted on secure HIPAA-aligned cloud infrastructure with automated hourly backups."
+              },
+              {
+                q: "How does the 7-day free trial work?",
+                a: "You can start any plan instantly with zero credit card required. You get full access to scheduling, AI notes, reminders, and client communication tools for 7 days."
+              },
+              {
+                q: "Can multiple veterinarians and staff members use DrVetly simultaneously?",
+                a: "Yes. DrVetly supports unlimited staff accounts with customizable role-based permissions (Veterinarians, Veterinary Technicians, Front Desk, Practice Manager) so everyone sees what they need."
+              },
+              {
+                q: "What happens after my free trial ends?",
+                a: "You can choose the plan that fits your clinic (Solo Clinic or Hyper Clinic). There are no long-term contracts, and you can cancel or switch plans at any time."
+              }
+            ].map((faq, index) => {
+              const isOpen = openFaq === index;
+              return (
+                <div key={index} className={`faq-item ${isOpen ? 'active' : ''}`}>
+                  <button 
+                    className="faq-question" 
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                  >
+                    <span>{faq.q}</span>
+                    <div className="faq-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="faq-answer">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FINAL CTA ================= */}
+      <section className="section">
         <div className="wrap">
           <div className="final-cta reveal">
             <h2>Give your team back its evenings.</h2>
