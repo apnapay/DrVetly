@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2, Stethoscope, MessageSquare, ArrowRight } from 'lucide-react';
 
 interface ContactViewProps {
-  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact') => void;
+  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact' | 'beta' | 'privacy' | 'terms') => void;
   isAuthenticated?: boolean;
 }
 
@@ -118,6 +118,7 @@ export default function ContactView({ onNavigate, isAuthenticated = false }: Con
           <div className="nav-links hidden md:flex">
             <a onClick={() => onNavigate('homepage')}>Features</a>
             <a onClick={() => onNavigate('pricing')}>Pricing</a>
+            <a onClick={() => onNavigate('beta')}>Beta Clinics</a>
             <a className="active" onClick={() => onNavigate('contact')}>Contact</a>
           </div>
           <div className="nav-cta">
@@ -345,14 +346,14 @@ export default function ContactView({ onNavigate, isAuthenticated = false }: Con
             <div className="foot-col">
               <h5>Company</h5>
               <a onClick={() => onNavigate('homepage')}>About</a>
-              <a onClick={() => onNavigate('homepage')}>Beta clinics</a>
+              <a onClick={() => onNavigate('beta')}>Beta clinics</a>
               <a onClick={() => onNavigate('contact')}>Contact</a>
             </div>
             <div className="foot-col">
               <h5>Resources</h5>
               <a onClick={() => onNavigate('contact')}>Help center</a>
-              <a onClick={() => onNavigate('homepage')}>Security</a>
-              <a onClick={() => onNavigate('homepage')}>Privacy</a>
+              <a onClick={() => onNavigate('privacy')}>Privacy</a>
+              <a onClick={() => onNavigate('terms')}>Terms</a>
             </div>
           </div>
           <div className="foot-bottom">

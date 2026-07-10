@@ -121,6 +121,7 @@ export interface SessionData {
   };
   clinicName: string;
   vetName: string;
+  subscriptionPlan?: 'solo' | 'hyper' | 'custom';
 }
 
 // Help create seed data for a new user if their local storage is clean
@@ -145,6 +146,7 @@ create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   clinic_name text not null,
   vet_name text not null,
+  subscription_plan text default 'solo',
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -398,9 +400,9 @@ export const authService = {
         // Fetch Profile
         const { data: profile } = await supabase
           .from('profiles')
-          .select('clinic_name, vet_name')
+          .select('clinic_name, vet_name, subscription_plan')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
         const emailVal = data.user.email || email;
         const emailPrefix = emailVal.split('@')[0];
@@ -410,12 +412,14 @@ export const authService = {
 
         const clinicName = profile?.clinic_name || data.user.user_metadata?.clinic_name || defaultClinicName;
         const vetName = profile?.vet_name || data.user.user_metadata?.vet_name || defaultVetName;
+        const subscriptionPlan = profile?.subscription_plan || 'solo';
 
         try {
           await supabase.from('profiles').upsert({
             id: data.user.id,
             clinic_name: clinicName,
-            vet_name: vetName
+            vet_name: vetName,
+            subscription_plan: subscriptionPlan
           });
         } catch (e) {
           // ignore if table doesn't exist yet or offline
@@ -424,7 +428,8 @@ export const authService = {
         const session: SessionData = {
           user: { id: data.user.id, email: data.user.email || email },
           clinicName,
-          vetName
+          vetName,
+          subscriptionPlan: subscriptionPlan as any
         };
         localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
         return session;
@@ -499,6 +504,21 @@ export const authService = {
         user.clinicName = clinicName;
         user.vetName = vetName;
         localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(localUsers));
+      }
+    }
+  },
+
+  async updateSubscriptionPlan(plan: 'solo' | 'hyper' | 'custom') {
+    const session = this.getCurrentSession();
+    if (session) {
+      session.subscriptionPlan = plan;
+      localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from('profiles').update({ subscription_plan: plan }).eq('id', session.user.id);
+        } catch (e) {
+          console.error('Failed to update subscription in Supabase:', e);
+        }
       }
     }
   }

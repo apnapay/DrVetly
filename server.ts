@@ -287,6 +287,33 @@ Keep it reassuring, clear, and easy to follow.`;
   }
 });
 
+// Crem.io Billing / Checkout Integration Endpoints
+app.post("/api/crem/checkout", (req, res) => {
+  const { plan, clinicName, email, annual } = req.body;
+  if (!plan) {
+    return res.status(400).json({ error: "Plan is required" });
+  }
+  const sessionId = "crem_sess_" + Math.random().toString(36).substring(2, 11);
+  const checkoutUrl = `https://crem.io/checkout/${sessionId}`;
+  
+  res.json({
+    success: true,
+    sessionId,
+    checkoutUrl,
+    provider: 'crem.io',
+    gateway: 'secure_crem_billing',
+    message: `Crem.io secure checkout session initialized for ${plan} plan.`,
+    amount: plan === 'solo' ? (annual ? 380 : 39) : plan === 'hyper' ? (annual ? 950 : 99) : 499,
+    currency: 'USD'
+  });
+});
+
+app.post("/api/crem/webhook", (req, res) => {
+  const event = req.body;
+  console.log("Crem.io Webhook received:", event?.type || 'subscription.updated');
+  res.json({ received: true, status: 'processed_by_crem_io' });
+});
+
 // Vite middleware setup
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

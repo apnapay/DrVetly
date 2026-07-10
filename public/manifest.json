@@ -1,0 +1,15 @@
+{
+  "short_name": "DrVetly",
+  "name": "DrVetly - The Operating System for Modern Veterinary Care",
+  "icons": [
+    {
+      "src": "https://drvetly.com/icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#04044A",
+  "display": "standalone"
+}

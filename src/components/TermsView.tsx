@@ -35,7 +35,13 @@ export default function TermsView({ onNavigate, isAuthenticated = false }: Terms
         }
         .homepage-root .btn-primary { background: var(--navy); color: #fff; }
         .homepage-root .btn-glow { background: var(--grad-cta); color: #fff; }
-        footer { background: var(--navy); color: rgba(255,255,255,.7); padding: 60px 0 30px; margin-top: 100px; }
+        .homepage-root footer { padding: 80px 0 40px; border-top: 1px solid var(--line); text-align: left; background: #fff; }
+        .homepage-root .foot-grid { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 40px; margin-bottom: 60px; }
+        .homepage-root .foot-brand p { margin-top: 16px; font-size: 14px; color: var(--ink-soft); max-width: 260px; line-height: 1.6; }
+        .homepage-root .foot-col h5 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); margin-bottom: 18px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+        .homepage-root .foot-col a { display: block; font-size: 14.5px; color: var(--ink); margin-bottom: 12px; transition: color .2s; cursor: pointer; }
+        .homepage-root .foot-col a:hover { color: var(--sky); }
+        .homepage-root .foot-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 32px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-soft); flex-wrap: wrap; gap: 16px; }
       `}} />
 
       <nav className="nav">
@@ -98,12 +104,40 @@ export default function TermsView({ onNavigate, isAuthenticated = false }: Terms
       </main>
 
       <footer>
-        <div className="wrap max-w-[1200px] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <span>© {new Date().getFullYear()} DrVetly. All rights reserved.</span>
-          <div className="flex items-center gap-6">
-            <a onClick={() => onNavigate('privacy')} className="cursor-pointer hover:underline">Privacy Policy</a>
-            <a onClick={() => onNavigate('terms')} className="cursor-pointer hover:underline">Terms of Service</a>
-            <a onClick={() => onNavigate('contact')} className="cursor-pointer hover:underline">Contact</a>
+        <div className="wrap">
+          <div className="foot-grid">
+            <div className="foot-brand">
+              <a href="#" className="brand flex items-center gap-3 cursor-pointer group mb-3" onClick={(e) => { e.preventDefault(); onNavigate('homepage'); }}>
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md">
+                  <Stethoscope size={18} />
+                </div>
+                <span className="font-bold text-lg text-[#04044A] tracking-tight">DrVetly</span>
+              </a>
+              <p>The operating system for the modern veterinary clinic. Built for the exam room, not the back office.</p>
+            </div>
+            <div className="foot-col">
+              <h5>Product</h5>
+              <a onClick={() => onNavigate('homepage')}>Dashboard</a>
+              <a onClick={() => onNavigate('homepage')}>AI SOAP notes</a>
+              <a onClick={() => onNavigate('homepage')}>Scheduling</a>
+              <a onClick={() => onNavigate('pricing')}>Pricing</a>
+            </div>
+            <div className="foot-col">
+              <h5>Company</h5>
+              <a onClick={() => onNavigate('homepage')}>About</a>
+              <a onClick={() => onNavigate('beta')}>Beta clinics</a>
+              <a onClick={() => onNavigate('contact')}>Contact</a>
+            </div>
+            <div className="foot-col">
+              <h5>Resources</h5>
+              <a onClick={() => onNavigate('contact')}>Help center</a>
+              <a onClick={() => onNavigate('privacy')}>Privacy</a>
+              <a onClick={() => onNavigate('terms')}>Terms</a>
+            </div>
+          </div>
+          <div className="foot-bottom">
+            <span>© {new Date().getFullYear()} DrVetly. All rights reserved.</span>
+            <span>Made for independent veterinary clinics, everywhere.</span>
           </div>
         </div>
       </footer>

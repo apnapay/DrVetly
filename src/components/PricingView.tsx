@@ -4,10 +4,12 @@ import { Check, ArrowRight, Stethoscope } from 'lucide-react';
 interface PricingViewProps {
   onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact' | 'beta' | 'privacy' | 'terms') => void;
   isAuthenticated?: boolean;
+  currentPlan?: 'solo' | 'hyper' | 'custom';
+  onSelectPlan?: (plan: 'solo' | 'hyper' | 'custom') => void;
 }
 
 
-export default function PricingView({ onNavigate, isAuthenticated = false }: PricingViewProps) {
+export default function PricingView({ onNavigate, isAuthenticated = false, currentPlan = 'solo', onSelectPlan }: PricingViewProps) {
   const [annualBilling, setAnnualBilling] = useState(false);
 
   const getPrice = (monthly: number) => {
@@ -105,7 +107,13 @@ export default function PricingView({ onNavigate, isAuthenticated = false }: Pri
         .homepage-root .plan-list li:first-child { border-top: none; }
         .homepage-root .price-card.feat .plan-list li { border-color: rgba(255,255,255,.18); color: #fff; }
         .homepage-root .price-card.feat .plan-list svg { stroke: #fff; }
-        .homepage-root footer { background: var(--paper); border-top: 1px solid var(--line); padding: 48px 0; text-align: center; color: var(--ink-soft); font-size: 14px; }
+        .homepage-root footer { padding: 80px 0 40px; border-top: 1px solid var(--line); text-align: left; background: #fff; }
+        .homepage-root .foot-grid { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 40px; margin-bottom: 60px; }
+        .homepage-root .foot-brand p { margin-top: 16px; font-size: 14px; color: var(--ink-soft); max-width: 260px; line-height: 1.6; }
+        .homepage-root .foot-col h5 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); margin-bottom: 18px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+        .homepage-root .foot-col a { display: block; font-size: 14.5px; color: var(--ink); margin-bottom: 12px; transition: color .2s; cursor: pointer; }
+        .homepage-root .foot-col a:hover { color: var(--sky); }
+        .homepage-root .foot-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 32px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-soft); flex-wrap: wrap; gap: 16px; }
       `}} />
 
       {/* Navigation Bar */}
@@ -122,10 +130,10 @@ export default function PricingView({ onNavigate, isAuthenticated = false }: Pri
           </div>
 
           <div className="nav-links hidden md:flex">
-            <a onClick={() => onNavigate('homepage')}>Product</a>
-            <a onClick={() => onNavigate('homepage')}>Workflow</a>
-            <a onClick={() => onNavigate('pricing')} className="font-bold text-[#04044A]">Pricing</a>
-            <a onClick={() => onNavigate('homepage')}>FAQ</a>
+            <a onClick={() => onNavigate('homepage')}>Features</a>
+            <a onClick={() => onNavigate('pricing')} className="active">Pricing</a>
+            <a onClick={() => onNavigate('beta')}>Beta Clinics</a>
+            <a onClick={() => onNavigate('contact')}>Contact</a>
           </div>
 
           <div className="nav-cta">
@@ -205,7 +213,18 @@ export default function PricingView({ onNavigate, isAuthenticated = false }: Pri
               <li><Check size={16} className="text-[#00A4FF]" />Billing Management</li>
               <li><Check size={16} className="text-[#00A4FF]" />Email Support</li>
             </ul>
-            <button onClick={() => onNavigate('signup')} className="btn btn-primary" style={{ width: '100%' }}>Start free trial</button>
+            {isAuthenticated ? (
+              <button 
+                onClick={() => onSelectPlan?.('solo')} 
+                disabled={currentPlan === 'solo'}
+                className={`btn ${currentPlan === 'solo' ? 'bg-slate-200 text-slate-500 cursor-default' : 'btn-primary'}`} 
+                style={{ width: '100%' }}
+              >
+                {currentPlan === 'solo' ? 'Current plan' : 'Upgrade plan'}
+              </button>
+            ) : (
+              <button onClick={() => onNavigate('signup')} className="btn btn-primary" style={{ width: '100%' }}>Start free trial</button>
+            )}
           </div>
 
           {/* Hyper Clinic */}
@@ -222,7 +241,18 @@ export default function PricingView({ onNavigate, isAuthenticated = false }: Pri
               <li><Check size={16} className="text-white" />Staff Management</li>
               <li><Check size={16} className="text-white" />Dedicated 24/7 community support</li>
             </ul>
-            <button onClick={() => onNavigate('signup')} className="btn btn-glow" style={{ width: '100%', background: '#fff', color: '#04044A' }}>Start free trial</button>
+            {isAuthenticated ? (
+              <button 
+                onClick={() => onSelectPlan?.('hyper')} 
+                disabled={currentPlan === 'hyper'}
+                className={`btn ${currentPlan === 'hyper' ? 'bg-slate-200 text-slate-700 cursor-default' : 'btn-glow'}`} 
+                style={{ width: '100%', background: currentPlan === 'hyper' ? '#e2e8f0' : '#fff', color: '#04044A' }}
+              >
+                {currentPlan === 'hyper' ? 'Current plan' : 'Upgrade plan'}
+              </button>
+            ) : (
+              <button onClick={() => onNavigate('signup')} className="btn btn-glow" style={{ width: '100%', background: '#fff', color: '#04044A' }}>Start free trial</button>
+            )}
           </div>
 
           {/* Custom */}
@@ -236,7 +266,18 @@ export default function PricingView({ onNavigate, isAuthenticated = false }: Pri
               <li><Check size={16} className="text-[#00A4FF]" />Multi-location support</li>
               <li><Check size={16} className="text-[#00A4FF]" />Dedicated founder support</li>
             </ul>
-            <button onClick={() => onNavigate('signup')} className="btn btn-primary" style={{ width: '100%', background: 'var(--navy)' }}>Talk to us</button>
+            {isAuthenticated ? (
+              <button 
+                onClick={() => onSelectPlan?.('custom')} 
+                disabled={currentPlan === 'custom'}
+                className={`btn ${currentPlan === 'custom' ? 'bg-slate-200 text-slate-500 cursor-default' : 'btn-primary'}`} 
+                style={{ width: '100%', background: currentPlan === 'custom' ? '#e2e8f0' : 'var(--navy)' }}
+              >
+                {currentPlan === 'custom' ? 'Current plan (Custom plan)' : 'Upgrade plan'}
+              </button>
+            ) : (
+              <button onClick={() => onNavigate('contact')} className="btn btn-primary" style={{ width: '100%', background: 'var(--navy)' }}>Talk to us</button>
+            )}
           </div>
 
         </div>
@@ -316,43 +357,37 @@ export default function PricingView({ onNavigate, isAuthenticated = false }: Pri
       {/* Footer */}
       <footer>
         <div className="wrap">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-16 border-b border-white/10">
-            <div className="space-y-3 md:col-span-1">
-              <a className="flex items-center gap-2 font-bold text-lg text-white cursor-pointer" onClick={() => onNavigate('homepage')}>
+          <div className="foot-grid">
+            <div className="foot-brand">
+              <a href="#" className="brand flex items-center gap-3 cursor-pointer group mb-3" onClick={(e) => { e.preventDefault(); onNavigate('homepage'); }}>
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md">
                   <Stethoscope size={18} />
                 </div>
-                <span>DrVetly</span>
+                <span className="font-bold text-lg text-[#04044A] tracking-tight">DrVetly</span>
               </a>
-              <p className="text-xs text-slate-400 leading-relaxed">The operating system for the modern veterinary clinic. Built for the exam room, not the back office.</p>
+              <p>The operating system for the modern veterinary clinic. Built for the exam room, not the back office.</p>
             </div>
-            <div>
-              <h5 className="font-['Space_Grotesk'] text-xs font-bold text-white uppercase tracking-wider mb-4">Product</h5>
-              <div className="space-y-2.5 text-xs text-slate-300">
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('homepage')}>Dashboard</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('homepage')}>AI SOAP notes</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('homepage')}>Scheduling</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('pricing')}>Pricing</a>
-              </div>
+            <div className="foot-col">
+              <h5>Product</h5>
+              <a onClick={() => onNavigate('homepage')}>Dashboard</a>
+              <a onClick={() => onNavigate('homepage')}>AI SOAP notes</a>
+              <a onClick={() => onNavigate('homepage')}>Scheduling</a>
+              <a onClick={() => onNavigate('pricing')}>Pricing</a>
             </div>
-            <div>
-              <h5 className="font-['Space_Grotesk'] text-xs font-bold text-white uppercase tracking-wider mb-4">Company</h5>
-              <div className="space-y-2.5 text-xs text-slate-300">
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('homepage')}>About</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('beta')}>Beta clinics</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('contact')}>Contact</a>
-              </div>
+            <div className="foot-col">
+              <h5>Company</h5>
+              <a onClick={() => onNavigate('homepage')}>About</a>
+              <a onClick={() => onNavigate('beta')}>Beta clinics</a>
+              <a onClick={() => onNavigate('contact')}>Contact</a>
             </div>
-            <div>
-              <h5 className="font-['Space_Grotesk'] text-xs font-bold text-white uppercase tracking-wider mb-4">Resources</h5>
-              <div className="space-y-2.5 text-xs text-slate-300">
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('contact')}>Help center</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('privacy')}>Privacy</a>
-                <a className="block hover:text-white cursor-pointer" onClick={() => onNavigate('terms')}>Terms</a>
-              </div>
+            <div className="foot-col">
+              <h5>Resources</h5>
+              <a onClick={() => onNavigate('contact')}>Help center</a>
+              <a onClick={() => onNavigate('privacy')}>Privacy</a>
+              <a onClick={() => onNavigate('terms')}>Terms</a>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 text-xs text-slate-400">
+          <div className="foot-bottom">
             <span>© {new Date().getFullYear()} DrVetly. All rights reserved.</span>
             <span>Made for independent veterinary clinics, everywhere.</span>
           </div>

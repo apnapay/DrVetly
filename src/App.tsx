@@ -82,6 +82,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState('Riverbend Animal Hospital');
   const [vetName, setVetName] = useState('Dr. Jamie Morales');
+  const [subscriptionPlan, setSubscriptionPlan] = useState<'solo' | 'hyper' | 'custom'>(() => {
+    return authService.getCurrentSession()?.subscriptionPlan || 'solo';
+  });
 
   // Master State Database (Initial empty, loaded dynamically)
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -115,12 +118,16 @@ export default function App() {
 
   // Restore session on mount & handle clean pathname routing
   useEffect(() => {
+    document.title = "DrVetly | The Operating System for Modern Veterinary Care";
     const initialView = getViewFromPath(window.location.pathname);
     const session = authService.getCurrentSession();
     if (session) {
       setCurrentUser(session.user.id);
       setClinicName(session.clinicName);
       setVetName(session.vetName);
+      if (session.subscriptionPlan) {
+        setSubscriptionPlan(session.subscriptionPlan);
+      }
       setIsAuthenticated(true);
       if (initialView === 'homepage' || initialView === 'login' || initialView === 'signup') {
         navigateTo('dashboard');
@@ -212,6 +219,7 @@ export default function App() {
       setCurrentUser(session.user.id);
       setClinicName(session.clinicName);
       setVetName(session.vetName);
+      setSubscriptionPlan(session.subscriptionPlan || 'solo');
       setIsAuthenticated(true);
       navigateTo('dashboard');
     }
@@ -223,6 +231,7 @@ export default function App() {
       setCurrentUser(session.user.id);
       setClinicName(session.clinicName);
       setVetName(session.vetName);
+      setSubscriptionPlan(session.subscriptionPlan || 'solo');
       setIsAuthenticated(true);
       navigateTo('dashboard');
     }
@@ -433,7 +442,19 @@ export default function App() {
           />
         );
       case 'pricing':
-        return <PricingView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
+        return (
+          <PricingView 
+            onNavigate={navigateTo} 
+            isAuthenticated={isAuthenticated} 
+            currentPlan={subscriptionPlan}
+            onSelectPlan={async (plan) => {
+              await authService.updateSubscriptionPlan(plan);
+              setSubscriptionPlan(plan);
+              navigateTo('dashboard');
+              alert(`Successfully updated your DrVetly subscription plan to ${plan === 'solo' ? 'Solo Clinic' : plan === 'hyper' ? 'Hyper Clinic' : 'custom plan'}!`);
+            }}
+          />
+        );
       case 'contact':
         return <ContactView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
       case 'beta':
@@ -542,6 +563,17 @@ export default function App() {
 
       {/* ================= CURVED FLOATING SIDEBAR ================= */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <button onClick={() => { navigateTo('dashboard'); setMobileMenuOpen(false); }} className="sb-brand group">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md shadow-blue-900/20 group-hover:scale-105 transition-transform">
+            <Stethoscope size={20} />
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-bold text-[17px] tracking-tight text-[#04044A]">
+              DrVetly
+            </span>
+          </div>
+        </button>
+
         <div className="sb-nav">
           {navItems.map((item) => {
             const isActive = view === item.id;
@@ -574,11 +606,23 @@ export default function App() {
 
         <div className="sb-footer">
           <div className="sb-upgrade">
-            <p className="t">You're on Basic</p>
-            <p className="d">Upgrade to Pro for unlimited AI notes and two-way SMS.</p>
-            <button onClick={() => navigateTo('billing')}>Upgrade plan</button>
+            <p className="t">
+              {subscriptionPlan === 'custom' ? "You're on custom plan" : subscriptionPlan === 'hyper' ? "You're on Hyper Clinic" : "You're on Solo Clinic"}
+            </p>
+            <p className="d">
+              {subscriptionPlan === 'custom' 
+                ? "You are on the highest plan of DrVetly with dedicated PIMS support." 
+                : subscriptionPlan === 'hyper' 
+                ? "Upgrade to Custom plan for multi-location groups." 
+                : "Upgrade to Hyper Clinic for unlimited AI notes and two-way SMS."}
+            </p>
+            {subscriptionPlan !== 'custom' ? (
+              <button onClick={() => navigateTo('pricing')}>Upgrade plan</button>
+            ) : (
+              <button onClick={() => navigateTo('pricing')} className="text-xs text-sky-600 font-semibold mt-1">View custom plan</button>
+            )}
           </div>
-          <button className="sb-user" onClick={handleLogout} title="Click to log out">
+          <button className="sb-user" onClick={() => navigateTo('settings')} title="View and edit personal info & settings">
             <div className="sb-avatar">{getInitials(vetName)}</div>
             <div>
               <div className="u-name">{vetName}</div>
