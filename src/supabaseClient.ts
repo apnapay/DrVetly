@@ -479,58 +479,6 @@ export const authService = {
     localStorage.removeItem(ACTIVE_SESSION_KEY);
   },
 
-  async signInWithGoogle(customAccount?: { email: string; name: string; clinicName: string }): Promise<SessionData> {
-    if (isSupabaseConfigured && supabase && !customAccount) {
-      try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin
-          }
-        });
-        if (error) throw error;
-        const session = this.getCurrentSession();
-        if (session) return session;
-      } catch (err: any) {
-        console.warn('Supabase Google OAuth fallback:', err);
-      }
-    }
-
-    // Professional Instant Google Auth Simulator / Fallback with Account Support
-    const googleEmail = customAccount?.email || 'dr.alex.morgan@gmail.com';
-    const vetName = customAccount?.name || 'Dr. Alex Morgan';
-    const clinicName = customAccount?.clinicName || 'San Francisco Veterinary Center';
-
-    const localUsers: LocalUser[] = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '[]');
-    let user = localUsers.find(u => u.email.toLowerCase() === googleEmail.toLowerCase());
-
-    if (!user) {
-      const newId = 'google_' + Math.random().toString(36).substring(2, 9);
-      user = {
-        id: newId,
-        email: googleEmail,
-        clinicName,
-        vetName
-      };
-      localUsers.push(user);
-      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(localUsers));
-      seedNewLocalUserData(newId);
-    } else {
-      user.clinicName = clinicName;
-      user.vetName = vetName;
-      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(localUsers));
-    }
-
-    const session: SessionData = {
-      user: { id: user.id, email: user.email },
-      clinicName: user.clinicName,
-      vetName: user.vetName,
-      subscriptionPlan: 'hyper'
-    };
-    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
-    return session;
-  },
-
   getCurrentSession(): SessionData | null {
     const stored = localStorage.getItem(ACTIVE_SESSION_KEY);
     if (stored) {
