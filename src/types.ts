@@ -61,3 +61,17 @@ export interface Conversation {
   isUnread: boolean;
   messages: Message[];
 }
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Lead Veterinarian' | 'Associate Veterinarian' | 'Vet Technician' | 'Receptionist' | 'Clinic Manager';
+  status: 'Active' | 'Pending Invite' | 'Inactive';
+  phone: string;
+  avatar: string;
+  notesCount: number;
+  appointmentsCount: number;
+  joinedDate: string;
+}
+

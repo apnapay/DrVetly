@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Shield, Eye, EyeOff, Building, Check, AlertCircle, Database, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, Shield, Eye, EyeOff, Building, Check, AlertCircle, Database, CheckCircle2, Stethoscope } from 'lucide-react';
 import { authService, isSupabaseConfigured, forceLocalMode } from '../supabaseClient';
 
 interface SignupProps {
-  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard') => void;
+  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'pricing') => void;
   onSignupSuccess: (clinicName: string, vetName: string) => void;
 }
 
@@ -71,8 +71,10 @@ export default function Signup({ onNavigate, onSignupSuccess }: SignupProps) {
       {/* ============ LEFT FORM SIDE ============ */}
       <main className="flex items-center justify-center p-6 md:p-12 relative order-2 lg:order-1">
         <div className="absolute top-10 left-14 text-xs font-semibold text-[#3c4372] hidden sm:flex items-center gap-2.5">
-          <button onClick={() => onNavigate('homepage')} className="flex items-center gap-2 font-bold text-sm text-[#04044A] bg-transparent border-none cursor-pointer">
-            <span className="w-5 h-5 rounded-md bg-gradient-to-tr from-[#04044A] to-[#00E1FF] flex-shrink-0"></span>
+          <button onClick={() => onNavigate('homepage')} className="flex items-center gap-3 font-bold text-lg text-[#04044A] bg-transparent border-none cursor-pointer group">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md">
+              <Stethoscope size={18} />
+            </div>
             DrVetly
           </button>
         </div>

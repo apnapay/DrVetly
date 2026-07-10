@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Patient, Appointment, Invoice } from '../types';
+import { Patient, Appointment, Invoice, SOAPNote } from '../types';
 import { renderPatientAvatar } from '../lib/supabaseStorage';
 
 interface DashboardViewProps {
   patients: Patient[];
   appointments: Appointment[];
   invoices: Invoice[];
+  soapNotes?: SOAPNote[];
   onSetView: (view: 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages') => void;
   onSelectPatient: (patientId: string) => void;
   vetName: string;
@@ -16,6 +17,7 @@ export default function DashboardView({
   patients,
   appointments,
   invoices,
+  soapNotes = [],
   onSetView,
   onSelectPatient,
   vetName,
@@ -56,6 +58,56 @@ export default function DashboardView({
     year: 'numeric',
     month: 'long',
     day: 'numeric'
+  });
+
+  // Generate real activities from actual state data
+  const dynamicActivities: { id: string; title: string; time: string; type: 'soap' | 'invoice' | 'appointment' | 'patient' }[] = [];
+
+  appointments.forEach(appt => {
+    const patient = patients.find(p => p.id === appt.patientId);
+    const pName = patient?.name || 'Patient';
+    let statusText = 'scheduled';
+    if (appt.status === 'checkedin') statusText = 'checked in';
+    else if (appt.status === 'inprogress') statusText = 'in consultation';
+    else if (appt.status === 'completed') statusText = 'visit completed';
+
+    dynamicActivities.push({
+      id: `appt-${appt.id}`,
+      title: `Appointment ${statusText} for <b>${pName}</b> (${appt.reason || 'General'})`,
+      time: appt.time || 'Today',
+      type: 'appointment'
+    });
+  });
+
+  soapNotes.forEach(note => {
+    const patient = patients.find(p => p.id === note.patientId);
+    const pName = patient?.name || 'Patient';
+    const isApproved = note.status === 'approved';
+    dynamicActivities.push({
+      id: `soap-${note.id}`,
+      title: isApproved ? `SOAP note for <b>${pName}</b> approved and synced` : `AI drafted SOAP note for <b>${pName}</b>`,
+      time: note.time || 'Recently',
+      type: 'soap'
+    });
+  });
+
+  invoices.forEach(inv => {
+    const isPaid = inv.status === 'paid';
+    dynamicActivities.push({
+      id: `inv-${inv.id}`,
+      title: `Invoice ${inv.id} ${isPaid ? 'paid by' : 'created for'} <b>${inv.clientName}</b> &mdash; $${inv.amount.toFixed(2)}`,
+      time: inv.date || 'Today',
+      type: 'invoice'
+    });
+  });
+
+  patients.slice(-3).forEach(pat => {
+    dynamicActivities.push({
+      id: `pat-${pat.id}`,
+      title: `New patient record registered for <b>${pat.name}</b> (${pat.species})`,
+      time: pat.lastVisit || 'Recently',
+      type: 'patient'
+    });
   });
 
   return (
@@ -285,59 +337,34 @@ export default function DashboardView({
             </div>
           </div>
           <div style={{ padding: '4px 0' }}>
-            
-            {/* Log item 1 */}
-            <div style={{ display: 'flex', gap: '14px', padding: '16px 24px', borderBottom: '1px solid var(--line)' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'var(--grad-hero)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"/>
-                </svg>
+            {dynamicActivities.length > 0 ? (
+              dynamicActivities.slice(0, 5).map((act, idx) => (
+                <div key={act.id || idx} style={{ display: 'flex', gap: '14px', padding: '16px 24px', borderBottom: idx < Math.min(dynamicActivities.length, 5) - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <div style={{ 
+                    width: '34px', 
+                    height: '34px', 
+                    borderRadius: '10px', 
+                    background: act.type === 'invoice' ? 'linear-gradient(135deg,#B7791F,#E0A94B)' : act.type === 'soap' ? 'linear-gradient(135deg,#00875A,#00C875)' : 'var(--grad-hero)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    flexShrink: 0 
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13.3px' }} dangerouslySetInnerHTML={{ __html: act.title }} />
+                    <div className="mono" style={{ fontSize: '11.3px', color: 'var(--ink-mute)', marginTop: '3px' }}>{act.time}</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--ink-mute)', fontSize: '13px' }}>
+                No recent clinic activity recorded yet. Schedule appointments, draft SOAP notes, or record patient visits to see live clinic events here.
               </div>
-              <div>
-                <div style={{ fontSize: '13.3px' }}>AI drafted a SOAP note for <b>Bella</b>'s 9:00 AM visit</div>
-                <div className="mono" style={{ fontSize: '11.3px', color: 'var(--ink-mute)', marginTop: '3px' }}>2 minutes ago</div>
-              </div>
-            </div>
-
-            {/* Log item 2 */}
-            <div style={{ display: 'flex', gap: '14px', padding: '16px 24px', borderBottom: '1px solid var(--line)' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'linear-gradient(135deg,#00875A,#00C875)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: '13.3px' }}>Reminder sent to <b>R. Patel</b> for tomorrow's visit</div>
-                <div className="mono" style={{ fontSize: '11.3px', color: 'var(--ink-mute)', marginTop: '3px' }}>18 minutes ago</div>
-              </div>
-            </div>
-
-            {/* Log item 3 */}
-            <div style={{ display: 'flex', gap: '14px', padding: '16px 24px', borderBottom: '1px solid var(--line)' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'linear-gradient(135deg,#B7791F,#E0A94B)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2v4M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: '13.3px' }}>Invoice #1042 paid by <b>D. Osei</b> &mdash; $186.00</div>
-                <div className="mono" style={{ fontSize: '11.3px', color: 'var(--ink-mute)', marginTop: '3px' }}>41 minutes ago</div>
-              </div>
-            </div>
-
-            {/* Log item 4 */}
-            <div style={{ display: 'flex', gap: '14px', padding: '16px 24px' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'var(--grad-hero)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: '13.3px' }}>SOAP note for <b>Luna</b> approved and synced</div>
-                <div className="mono" style={{ fontSize: '11.3px', color: 'var(--ink-mute)', marginTop: '3px' }}>1 hour ago</div>
-              </div>
-            </div>
-
+            )}
           </div>
         </div>
       </div>

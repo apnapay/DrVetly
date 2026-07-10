@@ -43,25 +43,9 @@ export default function SettingsView({
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [aiAutoFormat, setAiAutoFormat] = useState(true);
   
-  const [supabaseUrlInput, setSupabaseUrlInput] = useState(localStorage.getItem('drvetly_supabase_url') || 'https://fakqramigcggrpacopyz.supabase.co');
-  const [supabaseKeyInput, setSupabaseKeyInput] = useState(localStorage.getItem('drvetly_supabase_key') || '');
-  const [supabaseSaved, setSupabaseSaved] = useState(false);
-
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
-
-  const handleSaveSupabase = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('drvetly_supabase_url', supabaseUrlInput);
-    localStorage.setItem('drvetly_supabase_key', supabaseKeyInput);
-    localStorage.removeItem('drvetly_force_local');
-    setSupabaseSaved(true);
-    setTimeout(() => {
-      setSupabaseSaved(false);
-      window.location.reload();
-    }, 1000);
-  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,65 +198,7 @@ export default function SettingsView({
 
 
 
-        {/* Section 3: Supabase Cloud & Storage Sync */}
-        <div className="bg-white p-6 rounded-2xl border border-[#e3eaf6] shadow-xs space-y-5">
-          <div className="flex items-center gap-3 pb-4 border-b border-[#e3eaf6]">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-base text-[#04044A]">Supabase Cloud Database &amp; Storage Buckets</h3>
-              <p className="text-xs text-[#5a6291]">Real-time synchronization for patient records, medical attachments, invoices, and event bookings.</p>
-            </div>
-          </div>
 
-          <form onSubmit={handleSaveSupabase} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-[#04044A] uppercase tracking-wider font-mono mb-1.5">Supabase Project URL</label>
-                <input
-                  type="text"
-                  value={supabaseUrlInput}
-                  onChange={(e) => setSupabaseUrlInput(e.target.value)}
-                  placeholder="https://your-project.supabase.co"
-                  className="w-full px-4 py-3 bg-[#f6f9fd] border border-[#e3eaf6] rounded-xl text-xs font-mono text-[#04044A] focus:outline-none focus:border-[#0057D9] focus:bg-white transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#04044A] uppercase tracking-wider font-mono mb-1.5">Supabase Anon Key / Service Key</label>
-                <input
-                  type="password"
-                  value={supabaseKeyInput}
-                  onChange={(e) => setSupabaseKeyInput(e.target.value)}
-                  placeholder="eyJh..."
-                  className="w-full px-4 py-3 bg-[#f6f9fd] border border-[#e3eaf6] rounded-xl text-xs font-mono text-[#04044A] focus:outline-none focus:border-[#0057D9] focus:bg-white transition-all"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-xs font-semibold text-slate-600">Active Tables: patients, invoices, soap_notes, bookings, appointments</span>
-              </div>
-              <div className="flex items-center gap-3">
-                {supabaseSaved && (
-                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                    ✓ Connected &amp; Synced!
-                  </span>
-                )}
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#04044A] text-white rounded-xl text-xs font-bold hover:bg-[#0057D9] transition-all shadow-xs cursor-pointer flex items-center gap-2"
-                >
-                  <Save size={14} /> Save &amp; Reconnect Supabase
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
 
         {/* Section 4: Data Backup */}
         <div className="bg-white p-6 rounded-2xl border border-[#e3eaf6] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

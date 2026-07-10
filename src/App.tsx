@@ -9,16 +9,73 @@ import SoapNotesView from './components/SoapNotesView';
 import BillingView from './components/BillingView';
 import MessagesView from './components/MessagesView';
 import SettingsView from './components/SettingsView';
+import PricingView from './components/PricingView';
+import StaffView from './components/StaffView';
+import ContactView from './components/ContactView';
+import BetaClinicsView from './components/BetaClinicsView';
+import PrivacyView from './components/PrivacyView';
+import TermsView from './components/TermsView';
 import PublicBookingPage from './components/PublicBookingPage';
 import { INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_SOAP_NOTES, INITIAL_INVOICES, INITIAL_CONVERSATIONS } from './data';
-import { Patient, Appointment, SOAPNote, Invoice, Conversation, Message } from './types';
-import { Home, Calendar, Users, FileText, DollarSign, MessageSquare, LogOut, Menu, Shield } from 'lucide-react';
+import { Patient, Appointment, SOAPNote, Invoice, Conversation, Message, StaffMember } from './types';
+import { Home, Calendar, Users, FileText, DollarSign, MessageSquare, LogOut, Menu, Shield, Stethoscope } from 'lucide-react';
 import { authService, dbService, supabase } from './supabaseClient';
 import { syncPatientToSupabase, syncInvoiceToSupabase, syncSoapNoteToSupabase } from './lib/supabaseStorage';
 
 export default function App() {
-  // Navigation: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'settings'
-  const [view, setView] = useState<'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'settings'>('homepage');
+  type ViewType = 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact' | 'beta' | 'privacy' | 'terms';
+
+  const getViewFromPath = (path: string): ViewType => {
+    const clean = path.replace(/^\/+/, '').trim();
+    if (clean === 'pricing') return 'pricing';
+    if (clean === 'contact') return 'contact';
+    if (clean === 'beta' || clean === 'beta-clinics') return 'beta';
+    if (clean === 'privacy' || clean === 'privacy-policy') return 'privacy';
+    if (clean === 'terms' || clean === 'terms-of-service') return 'terms';
+    if (clean === 'login') return 'login';
+    if (clean === 'signup') return 'signup';
+    if (clean === 'dashboard') return 'dashboard';
+    if (clean === 'dashboard/schedule' || clean === 'schedule') return 'schedule';
+    if (clean === 'dashboard/patients' || clean === 'patients') return 'patients';
+    if (clean === 'dashboard/soap' || clean === 'soap-notes' || clean === 'soap') return 'soap-notes';
+    if (clean === 'dashboard/billing' || clean === 'billing') return 'billing';
+    if (clean === 'dashboard/messages' || clean === 'messages') return 'messages';
+    if (clean === 'dashboard/staff' || clean === 'staff') return 'staff';
+    if (clean === 'dashboard/settings' || clean === 'settings') return 'settings';
+    return 'homepage';
+  };
+
+  const getPathFromView = (v: ViewType): string => {
+    switch (v) {
+      case 'pricing': return '/pricing';
+      case 'contact': return '/contact';
+      case 'beta': return '/beta';
+      case 'privacy': return '/privacy';
+      case 'terms': return '/terms';
+      case 'login': return '/login';
+      case 'signup': return '/signup';
+      case 'dashboard': return '/dashboard';
+      case 'schedule': return '/dashboard/schedule';
+      case 'patients': return '/dashboard/patients';
+      case 'soap-notes': return '/dashboard/soap';
+      case 'billing': return '/dashboard/billing';
+      case 'messages': return '/dashboard/messages';
+      case 'staff': return '/dashboard/staff';
+      case 'settings': return '/dashboard/settings';
+      default: return '/';
+    }
+  };
+
+  // Navigation: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'settings' | 'pricing'
+  const [view, setViewState] = useState<ViewType>(() => getViewFromPath(window.location.pathname));
+
+  const navigateTo = (newView: ViewType) => {
+    setViewState(newView);
+    const targetPath = getPathFromView(newView);
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
   
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -33,26 +90,64 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [soapNotes, setSoapNotes] = useState<SOAPNote[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([
+    { id: '1', name: 'Dr. Jamie Morales', email: 'jamie@riverbendvet.com', role: 'Lead Veterinarian', status: 'Active', phone: '+1 (555) 234-5678', avatar: 'JM', notesCount: 42, appointmentsCount: 128, joinedDate: 'Jan 15, 2024' },
+    { id: '2', name: 'Dr. Alex Morgan', email: 'alex@riverbendvet.com', role: 'Associate Veterinarian', status: 'Active', phone: '+1 (555) 345-6789', avatar: 'AM', notesCount: 28, appointmentsCount: 94, joinedDate: 'Mar 10, 2024' },
+    { id: '3', name: 'Sarah Jenkins, RVT', email: 'sarah@riverbendvet.com', role: 'Vet Technician', status: 'Active', phone: '+1 (555) 456-7890', avatar: 'SJ', notesCount: 15, appointmentsCount: 156, joinedDate: 'Feb 01, 2024' },
+    { id: '4', name: 'Michael Chang', email: 'michael@riverbendvet.com', role: 'Receptionist', status: 'Active', phone: '+1 (555) 567-8901', avatar: 'MC', notesCount: 0, appointmentsCount: 210, joinedDate: 'Apr 12, 2024' }
+  ]);
+
+  const handleAddStaff = (newStaff: Omit<StaffMember, 'id'>) => {
+    const item: StaffMember = { ...newStaff, id: Math.random().toString(36).substring(2, 9) };
+    setStaffMembers(prev => [item, ...prev]);
+  };
+
+  const handleUpdateStaff = (id: string, updates: Partial<StaffMember>) => {
+    setStaffMembers(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const handleDeleteStaff = (id: string) => {
+    setStaffMembers(prev => prev.filter(s => s.id !== id));
+  };
 
   // Mobile sidebar
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Restore session on mount
+  // Restore session on mount & handle clean pathname routing
   useEffect(() => {
+    const initialView = getViewFromPath(window.location.pathname);
     const session = authService.getCurrentSession();
     if (session) {
       setCurrentUser(session.user.id);
       setClinicName(session.clinicName);
       setVetName(session.vetName);
       setIsAuthenticated(true);
-      setView('dashboard');
+      if (initialView === 'homepage' || initialView === 'login' || initialView === 'signup') {
+        navigateTo('dashboard');
+      } else {
+        navigateTo(initialView);
+      }
+    } else {
+      if (initialView && initialView !== 'homepage') {
+        navigateTo(initialView);
+      } else {
+        navigateTo('homepage');
+      }
     }
+
+    const handlePopState = () => {
+      const v = getViewFromPath(window.location.pathname);
+      setViewState(v);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Redirect to dashboard if authenticated and trying to view public pages
   useEffect(() => {
     if (isAuthenticated && (view === 'login' || view === 'signup' || view === 'homepage')) {
-      setView('dashboard');
+      navigateTo('dashboard');
     }
   }, [isAuthenticated, view]);
 
@@ -118,7 +213,7 @@ export default function App() {
       setClinicName(session.clinicName);
       setVetName(session.vetName);
       setIsAuthenticated(true);
-      setView('dashboard');
+      navigateTo('dashboard');
     }
   };
 
@@ -129,7 +224,7 @@ export default function App() {
       setClinicName(session.clinicName);
       setVetName(session.vetName);
       setIsAuthenticated(true);
-      setView('dashboard');
+      navigateTo('dashboard');
     }
   };
 
@@ -137,7 +232,7 @@ export default function App() {
     await authService.signOut();
     setCurrentUser(null);
     setIsAuthenticated(false);
-    setView('homepage');
+    navigateTo('homepage');
   };
 
   // State Mutators
@@ -271,7 +366,8 @@ export default function App() {
             patients={patients}
             appointments={appointments}
             invoices={invoices}
-            onSetView={(v) => setView(v as any)}
+            soapNotes={soapNotes}
+            onSetView={(v) => navigateTo(v as any)}
             onSelectPatient={handleSelectPatientId}
             vetName={vetName}
             clinicName={clinicName}
@@ -336,6 +432,27 @@ export default function App() {
             appointmentsCount={appointments.length}
           />
         );
+      case 'pricing':
+        return <PricingView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
+      case 'contact':
+        return <ContactView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
+      case 'beta':
+        return <BetaClinicsView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
+      case 'privacy':
+        return <PrivacyView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
+      case 'terms':
+        return <TermsView onNavigate={navigateTo} isAuthenticated={isAuthenticated} />;
+      case 'staff':
+        return (
+          <StaffView 
+            staffMembers={staffMembers}
+            onAddStaff={handleAddStaff}
+            onUpdateStaff={handleUpdateStaff}
+            onDeleteStaff={handleDeleteStaff}
+            vetName={vetName}
+            clinicName={clinicName}
+          />
+        );
       default:
         return null;
     }
@@ -350,12 +467,27 @@ export default function App() {
 
   if (!isAuthenticated) {
     if (view === 'login') {
-      return <Login onNavigate={setView} onLoginSuccess={handleLoginSuccess} />;
+      return <Login onNavigate={navigateTo} onLoginSuccess={handleLoginSuccess} />;
     }
     if (view === 'signup') {
-      return <Signup onNavigate={setView} onSignupSuccess={handleSignupSuccess} />;
+      return <Signup onNavigate={navigateTo} onSignupSuccess={handleSignupSuccess} />;
     }
-    return <Homepage onNavigate={setView} />;
+    if (view === 'pricing') {
+      return <PricingView onNavigate={navigateTo} isAuthenticated={false} />;
+    }
+    if (view === 'contact') {
+      return <ContactView onNavigate={navigateTo} isAuthenticated={false} />;
+    }
+    if (view === 'beta') {
+      return <BetaClinicsView onNavigate={navigateTo} isAuthenticated={false} />;
+    }
+    if (view === 'privacy') {
+      return <PrivacyView onNavigate={navigateTo} isAuthenticated={false} />;
+    }
+    if (view === 'terms') {
+      return <TermsView onNavigate={navigateTo} isAuthenticated={false} />;
+    }
+    return <Homepage onNavigate={navigateTo} />;
   }
 
   // Active Workspace Navigation Items
@@ -389,8 +521,10 @@ export default function App() {
       
       {/* Mobile Topbar */}
       <div className="md:hidden h-16 px-5 bg-white border-b border-[#e3eaf6] flex items-center justify-between z-40 sticky top-0">
-        <button onClick={() => setView('dashboard')} className="flex items-center gap-2.5 font-bold text-base text-[#04044A] border-none bg-transparent cursor-pointer">
-          <span className="sb-brand-mark"></span>
+        <button onClick={() => navigateTo('dashboard')} className="flex items-center gap-3 font-bold text-base text-[#04044A] border-none bg-transparent cursor-pointer group">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md">
+            <Stethoscope size={18} />
+          </div>
           DrVetly
         </button>
         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 border border-[#e3eaf6] rounded-xl bg-white text-[#04044A] flex items-center justify-center cursor-pointer hover:bg-slate-50">
@@ -408,18 +542,13 @@ export default function App() {
 
       {/* ================= CURVED FLOATING SIDEBAR ================= */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-        <button onClick={() => { setView('dashboard'); setMobileMenuOpen(false); }} className="sb-brand">
-          <span className="sb-brand-mark"></span>
-          DrVetly
-        </button>
-
         <div className="sb-nav">
           {navItems.map((item) => {
             const isActive = view === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => { setView(item.id as any); setMobileMenuOpen(false); }}
+                onClick={() => { navigateTo(item.id as any); setMobileMenuOpen(false); }}
                 className={`sb-item ${isActive ? 'active' : ''}`}
               >
                 {item.icon}
@@ -429,11 +558,11 @@ export default function App() {
           })}
 
           <div className="sb-section-label">Workspace</div>
-          <button onClick={() => { setView('patients'); setMobileMenuOpen(false); }} className="sb-item">
+          <button onClick={() => { navigateTo('staff'); setMobileMenuOpen(false); }} className={`sb-item ${view === 'staff' ? 'active' : ''}`}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <span>Staff</span>
           </button>
-          <button onClick={() => { setView('settings'); setMobileMenuOpen(false); }} className={`sb-item ${view === 'settings' ? 'active' : ''}`}>
+          <button onClick={() => { navigateTo('settings'); setMobileMenuOpen(false); }} className={`sb-item ${view === 'settings' ? 'active' : ''}`}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.4"/></svg>
             <span>Settings</span>
           </button>
@@ -447,7 +576,7 @@ export default function App() {
           <div className="sb-upgrade">
             <p className="t">You're on Basic</p>
             <p className="d">Upgrade to Pro for unlimited AI notes and two-way SMS.</p>
-            <button onClick={() => setView('billing')}>Upgrade plan</button>
+            <button onClick={() => navigateTo('billing')}>Upgrade plan</button>
           </div>
           <button className="sb-user" onClick={handleLogout} title="Click to log out">
             <div className="sb-avatar">{getInitials(vetName)}</div>
@@ -491,7 +620,7 @@ export default function App() {
                   <circle cx="12" cy="17" r="0.9" fill="#3c4372" />
                 </svg>
               </button>
-              <button onClick={() => setView('schedule')} className="btn btn-primary">
+              <button onClick={() => navigateTo('schedule')} className="btn btn-primary">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                   <path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
                 </svg>

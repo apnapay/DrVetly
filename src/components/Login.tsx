@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Shield, Eye, EyeOff, AlertCircle, Database, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, Shield, Eye, EyeOff, AlertCircle, Database, CheckCircle2, Stethoscope } from 'lucide-react';
 import { authService, isSupabaseConfigured, forceLocalMode } from '../supabaseClient';
 
 interface LoginProps {
-  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard') => void;
+  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'pricing') => void;
   onLoginSuccess: (clinicName: string, vetName: string) => void;
 }
 
@@ -42,8 +42,10 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
         <div className="absolute inset-0 opacity-30 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:radial-gradient(70%_60%_at_30%_20%,black,transparent_85%)]"></div>
         <div className="absolute w-[520px] h-[520px] rounded-full bg-gradient-radial from-[#00E1FF]/30 to-transparent bottom-[-220px] left-[-160px] blur-[10px] animate-drift"></div>
 
-        <button onClick={() => onNavigate('homepage')} className="flex items-center gap-2.5 font-bold text-xl text-white relative z-10 self-start bg-transparent border-none cursor-pointer">
-          <span className="w-7 h-7 rounded-[9px] bg-white/16 border border-white/30 flex-shrink-0"></span>
+        <button onClick={() => onNavigate('homepage')} className="flex items-center gap-3 font-bold text-xl text-white relative z-10 self-start bg-transparent border-none cursor-pointer group">
+          <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+            <Stethoscope size={20} />
+          </div>
           DrVetly
         </button>
 

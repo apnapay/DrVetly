@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Menu, Check, FileText } from 'lucide-react';
+import { ChevronRight, Menu, Check, FileText, Stethoscope } from 'lucide-react';
 
 interface HomepageProps {
-  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard') => void;
+  onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact' | 'beta' | 'privacy' | 'terms') => void;
 }
 
 export default function Homepage({ onNavigate }: HomepageProps) {
@@ -511,14 +511,16 @@ export default function Homepage({ onNavigate }: HomepageProps) {
       {/* ================= NAV ================= */}
       <nav className={`nav ${scrolled ? 'scrolled' : ''}`} id="nav">
         <div className="wrap nav-inner">
-          <a href="#" className="brand">
-            <span className="brand-mark"></span>
-            DrVetly
+          <a href="#" className="brand flex items-center gap-3 cursor-pointer group" onClick={(e) => { e.preventDefault(); onNavigate('homepage'); }}>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+              <Stethoscope size={20} />
+            </div>
+            <span className="font-bold text-xl text-[#04044A] tracking-tight">DrVetly</span>
           </a>
           <div className="nav-links">
             <a href="#product">Product</a>
             <a href="#workflow">Workflow</a>
-            <a href="#pricing">Pricing</a>
+            <a onClick={() => onNavigate('pricing')} className="cursor-pointer">Pricing</a>
             <a href="#faq">FAQ</a>
           </div>
           <div className="nav-cta">
@@ -756,32 +758,36 @@ export default function Homepage({ onNavigate }: HomepageProps) {
           </div>
           <div className="pricing-grid">
             <div className="price-card reveal">
-              <div className="plan-name">Basic</div>
-              <div className="plan-price">$67<span>/month</span></div>
+              <div className="plan-name">Solo Clinic</div>
+              <div className="plan-price">$57<span>/month</span></div>
               <div className="plan-desc">For single-vet practices getting off spreadsheets and paper charts.</div>
               <ul className="plan-list">
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#00A4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Dashboard &amp; scheduling</li>
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#00A4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Patient &amp; client records</li>
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#00A4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>AI SOAP notes (50/mo)</li>
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#00A4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Automated email reminders</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#00A4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Billing Management</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#00A4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Email Support</li>
               </ul>
               <button onClick={() => onNavigate('signup')} className="btn btn-primary" style={{ width: '100%' }}>Start free trial</button>
             </div>
             <div className="price-card feat reveal">
               <span className="plan-badge">Most popular</span>
-              <div className="plan-name">Pro</div>
-              <div className="plan-price">$199<span>/month</span></div>
-              <div className="plan-desc">For growing practices that need unlimited notes and two-way messaging.</div>
+              <div className="plan-name">Hyper Clinic</div>
+              <div className="plan-price">$137<span>/month</span></div>
+              <div className="plan-desc">For growing practices that need unlimited notes and sms messaging.</div>
               <ul className="plan-list">
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Everything in Basic</li>
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Unlimited AI SOAP notes</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Two-way SMS with owners</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Automated sms &amp; email reminders</li>
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Dedicated clinic phone number</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Staff Management</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Dedicated 24/7 community support</li>
               </ul>
               <button onClick={() => onNavigate('signup')} className="btn btn-white" style={{ width: '100%' }}>Start free trial</button>
             </div>
             <div className="price-card reveal">
-              <div className="plan-name">Enterprise</div>
+              <div className="plan-name">Custom</div>
               <div className="plan-price">Custom</div>
               <div className="plan-desc">For multi-location groups that need integrations and dedicated support.</div>
               <ul className="plan-list">
@@ -792,6 +798,11 @@ export default function Homepage({ onNavigate }: HomepageProps) {
               </ul>
               <button onClick={() => onNavigate('signup')} className="btn btn-primary" style={{ width: '100%', background: 'var(--navy)' }}>Talk to us</button>
             </div>
+          </div>
+          <div className="text-center mt-10">
+            <button onClick={() => onNavigate('pricing')} className="btn btn-ghost text-sm font-semibold flex items-center gap-2 mx-auto text-[#0057D9] hover:underline">
+              View full pricing page &amp; feature comparison →
+            </button>
           </div>
         </div>
       </section>
@@ -828,29 +839,32 @@ export default function Homepage({ onNavigate }: HomepageProps) {
         <div className="wrap">
           <div className="foot-grid">
             <div className="foot-brand">
-              <a href="#" className="brand"><span className="brand-mark"></span>DrVetly</a>
+              <a href="#" className="brand flex items-center gap-3 cursor-pointer group mb-3" onClick={(e) => { e.preventDefault(); onNavigate('homepage'); }}>
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#04044A] via-[#000675] to-[#0057D9] flex items-center justify-center text-white shadow-md">
+                  <Stethoscope size={18} />
+                </div>
+                <span className="font-bold text-lg text-[#04044A] tracking-tight">DrVetly</span>
+              </a>
               <p>The operating system for the modern veterinary clinic. Built for the exam room, not the back office.</p>
             </div>
             <div className="foot-col">
               <h5>Product</h5>
-              <a href="#">Dashboard</a>
-              <a href="#">AI SOAP notes</a>
-              <a href="#">Scheduling</a>
-              <a href="#">Pricing</a>
+              <a onClick={() => onNavigate('homepage')}>Dashboard</a>
+              <a onClick={() => onNavigate('homepage')}>AI SOAP notes</a>
+              <a onClick={() => onNavigate('homepage')}>Scheduling</a>
+              <a onClick={() => onNavigate('pricing')}>Pricing</a>
             </div>
             <div className="foot-col">
               <h5>Company</h5>
-              <a href="#">About</a>
-              <a href="#">Beta clinics</a>
-              <a href="#">Careers</a>
-              <a href="#">Contact</a>
+              <a onClick={() => onNavigate('homepage')}>About</a>
+              <a onClick={() => onNavigate('beta')}>Beta clinics</a>
+              <a onClick={() => onNavigate('contact')}>Contact</a>
             </div>
             <div className="foot-col">
               <h5>Resources</h5>
-              <a href="#">Help center</a>
-              <a href="#">Security</a>
-              <a href="#">Status</a>
-              <a href="#">Privacy</a>
+              <a onClick={() => onNavigate('contact')}>Help center</a>
+              <a onClick={() => onNavigate('privacy')}>Privacy</a>
+              <a onClick={() => onNavigate('terms')}>Terms</a>
             </div>
           </div>
           <div className="foot-bottom">
