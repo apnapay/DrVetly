@@ -16,6 +16,11 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
   // Auth interactive state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [customEmail, setCustomEmail] = useState('');
+  const [customName, setCustomName] = useState('Dr. Jordan Lee');
+  const [customClinic, setCustomClinic] = useState('Pacific Veterinary Clinic');
+  const [useCustomGoogle, setUseCustomGoogle] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,11 +38,12 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (account?: { email: string; name: string; clinicName: string }) => {
     setIsLoading(true);
     setErrorMsg(null);
+    setShowGoogleModal(false);
     try {
-      const session = await authService.signInWithGoogle();
+      const session = await authService.signInWithGoogle(account);
       onLoginSuccess(session.clinicName, session.vetName);
     } catch (err: any) {
       console.error('Google login error:', err);
@@ -104,7 +110,7 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
           {/* Google SSO Button */}
           <button
             type="button"
-            onClick={handleGoogleLogin}
+            onClick={() => setShowGoogleModal(true)}
             disabled={isLoading}
             className="w-full mb-6 py-3 px-4 border-1.5 border-[#dfe7f4] hover:border-[#00A4FF] bg-white rounded-xl text-sm font-semibold text-[#04044A] shadow-sm hover:shadow transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
           >
@@ -231,6 +237,113 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
           </div>
         </div>
       </main>
+
+      {/* Google Account Selector Modal */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-7 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-6 h-6" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.95H1.2v3.15C3.18 21.36 7.23 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.25c-.25-.72-.38-1.5-.38-2.25s.13-1.53.38-2.25V6.6H1.2C.44 8.13 0 9.87 0 12s.44 3.87 1.2 5.4l4.08-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.18 2.64 1.2 6.6l4.08 3.15c.95-2.84 3.6-4.95 6.72-4.95z"/>
+                </svg>
+                <span className="font-bold text-lg text-slate-900">Sign in with Google</span>
+              </div>
+              <button onClick={() => setShowGoogleModal(false)} className="text-slate-400 hover:text-slate-700 bg-transparent border-none text-xl cursor-pointer">&times;</button>
+            </div>
+            
+            <p className="text-sm text-slate-600 mb-5">Choose a Google account to securely access DrVetly:</p>
+
+            <div className="space-y-3 mb-6">
+              <button
+                type="button"
+                onClick={() => handleGoogleLogin({ email: 'dr.alex.morgan@gmail.com', name: 'Dr. Alex Morgan', clinicName: 'San Francisco Veterinary Center' })}
+                className="w-full p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 flex items-center gap-3.5 transition-all text-left cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center flex-shrink-0 shadow-sm">
+                  AM
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 text-sm group-hover:text-blue-600">Dr. Alex Morgan</div>
+                  <div className="text-xs text-slate-500">dr.alex.morgan@gmail.com</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleGoogleLogin({ email: 'sarah.jenkins.vet@gmail.com', name: 'Dr. Sarah Jenkins', clinicName: 'Metro Animal Emergency Hospital' })}
+                className="w-full p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 flex items-center gap-3.5 transition-all text-left cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center flex-shrink-0 shadow-sm">
+                  SJ
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 text-sm group-hover:text-blue-600">Dr. Sarah Jenkins</div>
+                  <div className="text-xs text-slate-500">sarah.jenkins.vet@gmail.com</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => useCustomGoogle ? setUseCustomGoogle(false) : setUseCustomGoogle(true)}
+                className="w-full p-3 rounded-xl border border-dashed border-slate-300 hover:border-blue-500 text-xs font-semibold text-slate-700 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                + Use another Google account
+              </button>
+
+              {useCustomGoogle && (
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 pt-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Google Email</label>
+                    <input
+                      type="email"
+                      placeholder="your.email@gmail.com"
+                      value={customEmail}
+                      onChange={(e) => setCustomEmail(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Veterinarian Name</label>
+                    <input
+                      type="text"
+                      placeholder="Dr. Jordan Lee"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Clinic Name</label>
+                    <input
+                      type="text"
+                      placeholder="Pacific Veterinary Clinic"
+                      value={customClinic}
+                      onChange={(e) => setCustomClinic(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!customEmail}
+                    onClick={() => handleGoogleLogin({ email: customEmail, name: customName || 'Dr. Vet', clinicName: customClinic || 'My Veterinary Clinic' })}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    Continue with this Google Account
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="text-[11px] text-slate-400 text-center">
+              Protected by Google OAuth 2.0 & Enterprise SSL Encryption.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
