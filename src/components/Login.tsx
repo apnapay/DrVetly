@@ -33,6 +33,20 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const session = await authService.signInWithGoogle();
+      onLoginSuccess(session.clinicName, session.vetName);
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setErrorMsg(err.message || 'Google authentication failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen bg-[#f6f9fd] selection:bg-[#00E1FF] selection:text-[#04044A] font-sans">
       
@@ -85,7 +99,28 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
         <div className="w-full max-w-[400px]">
           <span className="font-mono text-[11px] uppercase tracking-wider text-[#00A4FF] font-semibold mb-3.5 block fade-in">Welcome back</span>
           <h2 className="text-3xl font-bold tracking-tight text-[#04044A] fade-in d1">Log in to your clinic</h2>
-          <p className="text-[#3c4372] text-[13.8px] leading-relaxed mt-2.5 mb-8 fade-in d1">Enter your details to get back to today's schedule.</p>
+          <p className="text-[#3c4372] text-[13.8px] leading-relaxed mt-2.5 mb-6 fade-in d1">Enter your details to get back to today's schedule.</p>
+
+          {/* Google SSO Button */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+            className="w-full mb-6 py-3 px-4 border-1.5 border-[#dfe7f4] hover:border-[#00A4FF] bg-white rounded-xl text-sm font-semibold text-[#04044A] shadow-sm hover:shadow transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.95H1.2v3.15C3.18 21.36 7.23 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.28 14.25c-.25-.72-.38-1.5-.38-2.25s.13-1.53.38-2.25V6.6H1.2C.44 8.13 0 9.87 0 12s.44 3.87 1.2 5.4l4.08-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.18 2.64 1.2 6.6l4.08 3.15c.95-2.84 3.6-4.95 6.72-4.95z"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#dfe7f4]"></div></div>
+            <span className="relative px-3 bg-[#f6f9fd] text-[11px] font-mono uppercase tracking-wider text-[#3c4372]/70">Or with work email</span>
+          </div>
 
           {/* Credentials Form */}
           <form onSubmit={handleSubmit} className="space-y-4 fade-in d3">
