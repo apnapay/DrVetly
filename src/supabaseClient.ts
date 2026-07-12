@@ -138,8 +138,8 @@ function getInitialSeedData<T>(key: string, initial: T[]): T[] {
 }
 
 // Generate SQL schemas so the user can easily copy and execute them in Supabase
-export const SUPABASE_SQL_SETUP = `-- Supabase SQL Setup Script for DrVetly
--- Run this in your Supabase SQL Editor to provision the tables!
+export const SUPABASE_SQL_SETUP = `-- Supabase Production-Grade SQL Setup Script for DrVetly
+-- Run this in your Supabase SQL Editor to provision all tables, edge functions schemas, realtime, and storage buckets!
 
 -- 1. Create Profiles table (linked to Auth)
 create table if not exists public.profiles (
@@ -150,18 +150,13 @@ create table if not exists public.profiles (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable RLS on profiles
 alter table public.profiles enable row level security;
-
--- Drop existing policies if any
 drop policy if exists "Users can view and update their own profile" on public.profiles;
-
--- Create robust policies
 create policy "Users can view and update their own profile" 
   on public.profiles for all 
-  using (auth.uid() = id or auth.uid() is null); -- allow trigger/session flexibility
+  using (auth.uid() = id or auth.uid() is null);
 
--- Create a trigger function to automatically create a profile on signup
+-- Create trigger function to automatically create profile on signup
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -179,13 +174,33 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Bind the trigger
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 2. Create Patients table
+-- 2. Create Staff Members table
+create table if not exists public.staff_members (
+  id text primary key,
+  user_id uuid references auth.users on delete cascade,
+  name text not null,
+  email text not null,
+  role text not null,
+  status text not null,
+  phone text not null,
+  avatar text not null,
+  notes_count integer default 0,
+  appointments_count integer default 0,
+  joined_date text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.staff_members enable row level security;
+create policy "Users can manage their own clinic staff" 
+  on public.staff_members for all 
+  using (auth.uid() = user_id);
+
+-- 3. Create Patients table
 create table if not exists public.patients (
   id text primary key,
   user_id uuid references auth.users on delete cascade,
@@ -207,7 +222,7 @@ create policy "Users can manage their own patients"
   on public.patients for all 
   using (auth.uid() = user_id);
 
--- 3. Create Appointments table
+-- 4. Create Appointments table
 create table if not exists public.appointments (
   id text primary key,
   user_id uuid references auth.users on delete cascade,
@@ -224,7 +239,7 @@ create policy "Users can manage their own appointments"
   on public.appointments for all 
   using (auth.uid() = user_id);
 
--- 4. Create SOAP Notes table
+-- 5. Create SOAP Notes table
 create table if not exists public.soap_notes (
   id text primary key,
   user_id uuid references auth.users on delete cascade,
@@ -245,7 +260,7 @@ create policy "Users can manage their own SOAP notes"
   on public.soap_notes for all 
   using (auth.uid() = user_id);
 
--- 5. Create Invoices table
+-- 6. Create Invoices table (Clinic billing to pet owners)
 create table if not exists public.invoices (
   id text primary key,
   user_id uuid references auth.users on delete cascade,
@@ -262,7 +277,25 @@ create policy "Users can manage their own invoices"
   on public.invoices for all 
   using (auth.uid() = user_id);
 
--- 6. Create Conversations / Messages table
+-- 7. Create Creem.io Subscriptions & Billing Tracking table
+create table if not exists public.creem_subscriptions (
+  id text primary key,
+  user_id uuid references auth.users on delete cascade,
+  subscription_id text not null,
+  plan_name text not null,
+  status text not null,
+  amount numeric not null,
+  billing_interval text not null,
+  current_period_end text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.creem_subscriptions enable row level security;
+create policy "Users can manage their own creem subscriptions" 
+  on public.creem_subscriptions for all 
+  using (auth.uid() = user_id);
+
+-- 8. Create Conversations & Messages table (Two-way SMS / Client Chat)
 create table if not exists public.conversations (
   id text primary key,
   user_id uuid references auth.users on delete cascade,
@@ -295,8 +328,66 @@ alter table public.messages enable row level security;
 create policy "Users can manage their own messages" 
   on public.messages for all 
   using (auth.uid() = user_id);
-`;
 
+-- 9. Storage Buckets Setup
+insert into storage.buckets (id, name, public) 
+values ('patient-records', 'patient-records', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Public Access for Patient Records" on storage.objects;
+create policy "Public Access for Patient Records" 
+  on storage.objects for select 
+  using (bucket_id = 'patient-records');
+
+drop policy if exists "Authenticated Users Upload Patient Records" on storage.objects;
+create policy "Authenticated Users Upload Patient Records" 
+  on storage.objects for insert 
+  with check (bucket_id = 'patient-records' and auth.role() = 'authenticated');
+
+-- 10. Create Google Calendar Integration tables
+create table if not exists public.google_calendar_connections (
+  id text primary key,
+  user_id uuid references auth.users on delete cascade,
+  calendar_email text not null,
+  calendar_name text not null,
+  is_connected boolean default true,
+  sync_direction text default 'bidirectional',
+  last_synced_at timestamp with time zone default timezone('utc'::text, now()),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.google_calendar_connections enable row level security;
+create policy "Users can manage their own calendar connections" 
+  on public.google_calendar_connections for all 
+  using (auth.uid() = user_id or auth.uid() is null);
+
+create table if not exists public.google_calendar_sync_logs (
+  id text primary key,
+  user_id uuid references auth.users on delete cascade,
+  event_title text not null,
+  action text not null, -- 'SYNC_CREATED', 'SYNC_UPDATED', 'SYNC_DELETED', 'PULLED_FROM_GCAL'
+  status text not null, -- 'SUCCESS' | 'ERROR'
+  details text,
+  logged_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.google_calendar_sync_logs enable row level security;
+create policy "Users can view their own calendar sync logs" 
+  on public.google_calendar_sync_logs for all 
+  using (auth.uid() = user_id or auth.uid() is null);
+
+-- 11. Enable Supabase Realtime Publication for Live Sync
+alter publication supabase_realtime add table public.patients;
+alter publication supabase_realtime add table public.appointments;
+alter publication supabase_realtime add table public.soap_notes;
+alter publication supabase_realtime add table public.invoices;
+alter publication supabase_realtime add table public.staff_members;
+alter publication supabase_realtime add table public.creem_subscriptions;
+alter publication supabase_realtime add table public.conversations;
+alter publication supabase_realtime add table public.messages;
+alter publication supabase_realtime add table public.google_calendar_connections;
+alter publication supabase_realtime add table public.google_calendar_sync_logs;
+`;
 // ==========================================
 // UNIFIED AUTH SERVICE
 // ==========================================
