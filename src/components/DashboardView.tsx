@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Patient, Appointment, Invoice, SOAPNote } from '../types';
 import { renderPatientAvatar } from '../lib/supabaseStorage';
 
@@ -24,6 +24,22 @@ export default function DashboardView({
   clinicName
 }: DashboardViewProps) {
   const [scheduleFilter, setScheduleFilter] = useState<'all' | 'checkedin' | 'inprogress' | 'scheduled'>('all');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hours = currentTime.getHours();
+  let greeting = 'Good morning';
+  if (hours >= 12 && hours < 17) {
+    greeting = 'Good afternoon';
+  } else if (hours >= 17) {
+    greeting = 'Good evening';
+  }
+
+  const timeString = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   // Compute dynamic stats
   const totalApptsToday = appointments.length;
@@ -116,7 +132,7 @@ export default function DashboardView({
       {/* Welcome header band */}
       <div className="welcome-band fade-in">
         <div>
-          <h2>Good morning, {vetName} 👋</h2>
+          <h2>{greeting}, {vetName} 👋</h2>
           <p>You have {totalApptsToday} appointments scheduled today.</p>
         </div>
         <div className="date-pill">

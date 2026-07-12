@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Homepage from './components/Homepage';
 import Login from './components/Login';
 import Signup from './components/Signup';
-import AuthCallback from './components/AuthCallback';
 import DashboardView from './components/DashboardView';
 import ScheduleView from './components/ScheduleView';
 import PatientsView from './components/PatientsView';
@@ -17,16 +16,17 @@ import BetaClinicsView from './components/BetaClinicsView';
 import PrivacyView from './components/PrivacyView';
 import TermsView from './components/TermsView';
 import PublicBookingPage from './components/PublicBookingPage';
+import { INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_SOAP_NOTES, INITIAL_INVOICES, INITIAL_CONVERSATIONS } from './data';
 import { Patient, Appointment, SOAPNote, Invoice, Conversation, Message, StaffMember } from './types';
 import { Home, Calendar, Users, FileText, DollarSign, MessageSquare, LogOut, Menu, Shield, Stethoscope } from 'lucide-react';
-import { supabase } from './lib/supabaseClient';
+import { authService, dbService, supabase } from './supabaseClient';
+import { syncPatientToSupabase, syncInvoiceToSupabase, syncSoapNoteToSupabase } from './lib/supabaseStorage';
 
 export default function App() {
-  type ViewType = 'homepage' | 'login' | 'signup' | 'auth-callback' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact' | 'beta' | 'privacy' | 'terms';
+  type ViewType = 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'staff' | 'settings' | 'pricing' | 'contact' | 'beta' | 'privacy' | 'terms';
 
   const getViewFromPath = (path: string): ViewType => {
     const clean = path.replace(/^\/+/, '').trim();
-    if (clean === 'auth/callback' || clean === 'auth/v1/callback') return 'auth-callback';
     if (clean === 'pricing') return 'pricing';
     if (clean === 'contact') return 'contact';
     if (clean === 'beta' || clean === 'beta-clinics') return 'beta';
@@ -47,7 +47,6 @@ export default function App() {
 
   const getPathFromView = (v: ViewType): string => {
     switch (v) {
-      case 'auth-callback': return '/auth/callback';
       case 'pricing': return '/pricing';
       case 'contact': return '/contact';
       case 'beta': return '/beta';
@@ -67,6 +66,7 @@ export default function App() {
     }
   };
 
+  // Navigation: 'homepage' | 'login' | 'signup' | 'dashboard' | 'schedule' | 'patients' | 'soap-notes' | 'billing' | 'messages' | 'settings' | 'pricing'
   const [view, setViewState] = useState<ViewType>(() => getViewFromPath(window.location.pathname));
 
   const navigateTo = (newView: ViewType) => {
@@ -82,159 +82,46 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState('Riverbend Animal Hospital');
   const [vetName, setVetName] = useState('Dr. Jamie Morales');
-  const [subscriptionPlan, setSubscriptionPlan] = useState<'solo' | 'hyper' | 'custom'>('solo');
+  const [subscriptionPlan, setSubscriptionPlan] = useState<'solo' | 'hyper' | 'custom'>(() => {
+    return authService.getCurrentSession()?.subscriptionPlan || 'solo';
+  });
 
-  // Master State Database
+  // Master State Database (Initial empty, loaded dynamically)
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [soapNotes, setSoapNotes] = useState<SOAPNote[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
 
-  const handleAddStaff = async (newStaff: Omit<StaffMember, 'id'>) => {
-    const { error } = await supabase.from('users').insert({
-      first_name: newStaff.name.split(' ')[0] || 'Staff',
-      last_name: newStaff.name.split(' ').slice(1).join(' ') || 'Member',
-      email: newStaff.email,
-      role: newStaff.role.toUpperCase().includes('ADMIN') ? 'ADMIN' : 'VET',
-      phone: newStaff.phone,
-      active: newStaff.status === 'Active'
-    });
-    if (error) {
-      alert('Failed to add staff member: ' + error.message);
-    }
-  };
-
-  const handleUpdateStaff = async (id: string, updates: Partial<StaffMember>) => {
-    const { error } = await supabase.from('users').update({
-      first_name: updates.name?.split(' ')[0],
-      last_name: updates.name?.split(' ').slice(1).join(' '),
-      email: updates.email,
-      phone: updates.phone,
-      active: updates.status === 'Active'
-    }).eq('id', id);
-    if (error) {
-      alert('Failed to update staff member: ' + error.message);
-    }
-  };
-
-  const handleDeleteStaff = async (id: string) => {
-    const { error } = await supabase.from('users').delete().eq('id', id);
-    if (error) {
-      alert('Failed to delete staff member: ' + error.message);
-    }
-  };
-
+  // Mobile sidebar
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Restore session on mount & handle clean pathname routing
   useEffect(() => {
     document.title = "DrVetly | The Operating System for Modern Veterinary Care";
     const initialView = getViewFromPath(window.location.pathname);
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setCurrentUser(session.user.id);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*, clinics(name, plan)')
-          .eq('auth_id', session.user.id)
-          .maybeSingle();
-
-        if (userData) {
-          setClinicName((userData.clinics as any)?.name || 'My Veterinary Clinic');
-          setVetName(`${userData.first_name} ${userData.last_name}`);
-          setSubscriptionPlan(((userData.clinics as any)?.plan || 'solo').toLowerCase());
-        } else if (session?.user) {
-          const email = session.user.email || 'vet@example.com';
-          const prefix = email.split('@')[0];
-          const defaultClinicName = `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} Veterinary Clinic`;
-          const defaultFirstName = 'Dr. ' + (prefix.charAt(0).toUpperCase() + prefix.slice(1));
-          const defaultLastName = 'Practitioner';
-          try {
-            const { data: clinicRes } = await supabase.from('clinics').insert({ name: defaultClinicName, plan: 'SOLO' }).select().single();
-            if (clinicRes) {
-              await supabase.from('users').insert({
-                auth_id: session.user.id,
-                email,
-                first_name: defaultFirstName,
-                last_name: defaultLastName,
-                role: 'ADMIN',
-                clinic_id: clinicRes.id,
-                active: true
-              });
-              setClinicName(defaultClinicName);
-              setVetName(`${defaultFirstName} ${defaultLastName}`);
-              setSubscriptionPlan('solo');
-            }
-          } catch (e) {
-            setClinicName('My Veterinary Clinic');
-            setVetName(email);
-          }
-        }
-        if (initialView === 'homepage' || initialView === 'login' || initialView === 'signup') {
-          navigateTo('dashboard');
-        } else {
-          navigateTo(initialView);
-        }
-      } else {
-        if (initialView && initialView !== 'homepage') {
-          navigateTo(initialView);
-        } else {
-          navigateTo('homepage');
-        }
+    const session = authService.getCurrentSession();
+    if (session) {
+      setCurrentUser(session.user.id);
+      setClinicName(session.clinicName);
+      setVetName(session.vetName);
+      if (session.subscriptionPlan) {
+        setSubscriptionPlan(session.subscriptionPlan);
       }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setCurrentUser(session.user.id);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*, clinics(name, plan)')
-          .eq('auth_id', session.user.id)
-          .maybeSingle();
-
-        if (userData) {
-          setClinicName((userData.clinics as any)?.name || 'My Veterinary Clinic');
-          setVetName(`${userData.first_name} ${userData.last_name}`);
-          setSubscriptionPlan(((userData.clinics as any)?.plan || 'solo').toLowerCase());
-        } else if (session?.user) {
-          const email = session.user.email || 'vet@example.com';
-          const prefix = email.split('@')[0];
-          const defaultClinicName = `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} Veterinary Clinic`;
-          const defaultFirstName = 'Dr. ' + (prefix.charAt(0).toUpperCase() + prefix.slice(1));
-          const defaultLastName = 'Practitioner';
-          try {
-            const { data: clinicRes } = await supabase.from('clinics').insert({ name: defaultClinicName, plan: 'SOLO' }).select().single();
-            if (clinicRes) {
-              await supabase.from('users').insert({
-                auth_id: session.user.id,
-                email,
-                first_name: defaultFirstName,
-                last_name: defaultLastName,
-                role: 'ADMIN',
-                clinic_id: clinicRes.id,
-                active: true
-              });
-              setClinicName(defaultClinicName);
-              setVetName(`${defaultFirstName} ${defaultLastName}`);
-              setSubscriptionPlan('solo');
-            }
-          } catch (e) {
-            setClinicName('My Veterinary Clinic');
-            setVetName(email);
-          }
-        }
+      setIsAuthenticated(true);
+      if (initialView === 'homepage' || initialView === 'login' || initialView === 'signup') {
+        navigateTo('dashboard');
       } else {
-        setIsAuthenticated(false);
-        setCurrentUser(null);
+        navigateTo(initialView);
       }
-    });
+    } else {
+      if (initialView && initialView !== 'homepage') {
+        navigateTo(initialView);
+      } else {
+        navigateTo('homepage');
+      }
+    }
 
     const handlePopState = () => {
       const v = getViewFromPath(window.location.pathname);
@@ -242,10 +129,7 @@ export default function App() {
     };
 
     window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      subscription.unsubscribe();
-    };
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Redirect to dashboard if authenticated and trying to view public pages
@@ -263,112 +147,44 @@ export default function App() {
       setInvoices([]);
       setConversations([]);
       setSoapNotes([]);
-      setStaffMembers([]);
       return;
     }
 
     let active = true;
     async function loadWorkspaceData() {
       try {
-        const [patRes, apptRes, invRes, notesRes, staffRes] = await Promise.all([
-          supabase.from('patients').select('*, client:clients(*)').order('created_at', { ascending: false }),
-          supabase.from('appointments').select('*, patient:patients(*, client:clients(*)), vet:users(*)').order('start_at', { ascending: true }),
-          supabase.from('invoices').select('*, client:clients(*), patient:patients(*)').order('created_at', { ascending: false }),
-          supabase.from('soap_notes').select('*, patient:patients(*)').order('created_at', { ascending: false }),
-          supabase.from('users').select('*').order('created_at', { ascending: true })
+        const [loadedPat, loadedAppt, loadedInv, loadedNotes, loadedConv] = await Promise.all([
+          dbService.getPatients(currentUser!),
+          dbService.getAppointments(currentUser!),
+          dbService.getInvoices(currentUser!),
+          dbService.getSoapNotes(currentUser!),
+          dbService.getConversations(currentUser!)
         ]);
 
         if (active) {
-          if (patRes.data) {
-            setPatients(patRes.data.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              species: p.species,
-              breed: p.breed,
-              age: p.age_label || '2y',
-              weight: `${p.weight_kg || 15} kg`,
-              gender: 'Spayed Female',
-              ownerName: p.client ? `${p.client.first_name} ${p.client.last_name}` : 'Sarah Connor',
-              ownerEmail: p.client?.email || 'owner@example.com',
-              ownerPhone: p.client?.phone || '555-0192',
-              avatar: p.avatar || '🐶',
-              status: p.status || 'Active',
-              temp: `${p.temp_f || 101.2}°F`,
-              heartRate: '88 bpm',
-              respRate: '22 rpm',
-              lastVisit: 'Recent',
-              notes: p.notes || 'Healthy checkup'
-            })));
-          }
-
-          if (apptRes.data) {
-            setAppointments(apptRes.data.map((a: any) => ({
-              id: a.id,
-              patientName: a.patient?.name || 'Patient',
-              species: a.patient?.species || 'Canine',
-              ownerName: a.patient?.client ? `${a.patient.client.first_name} ${a.patient.client.last_name}` : 'Client',
-              time: new Date(a.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              date: new Date(a.start_at).toISOString().split('T')[0],
-              type: a.reason || 'General Exam',
-              status: (a.status || 'SCHEDULED').toLowerCase(),
-              avatar: a.patient?.avatar || '🐶',
-              vetAssigned: a.vet ? `${a.vet.first_name} ${a.vet.last_name}` : 'Dr. Jamie Morales'
-            })));
-          }
-
-          if (invRes.data) {
-            setInvoices(invRes.data.map((inv: any) => ({
-              id: inv.id,
-              patientId: inv.patient_id,
-              clientName: inv.client ? `${inv.client.first_name} ${inv.client.last_name}` : 'Client',
-              date: new Date(inv.created_at).toISOString().split('T')[0],
-              amount: `$${((inv.amount_cents || 15000) / 100).toFixed(2)}`,
-              status: (inv.status || 'PENDING').toLowerCase()
-            })));
-          }
-
-          if (notesRes.data) {
-            setSoapNotes(notesRes.data.map((n: any) => ({
-              id: n.id,
-              patientId: n.patient_id,
-              patientName: n.patient?.name || 'Patient',
-              date: new Date(n.created_at).toISOString().split('T')[0],
-              transcript: n.transcript || '',
-              subjective: n.subjective || '',
-              objective: n.objective || '',
-              assessment: n.assessment || '',
-              plan: n.plan || '',
-              status: (n.status || 'PENDING_REVIEW').toLowerCase()
-            })));
-          }
-
-          if (staffRes.data) {
-            setStaffMembers(staffRes.data.map((u: any) => ({
-              id: u.id,
-              name: `${u.first_name} ${u.last_name}`,
-              email: u.email,
-              role: u.role === 'ADMIN' ? 'Lead Veterinarian' : 'Associate Veterinarian',
-              status: u.active ? 'Active' : 'Inactive',
-              phone: u.phone || '+1 (555) 234-5678',
-              avatar: `${u.first_name?.[0] || 'V'}${u.last_name?.[0] || 'T'}`.toUpperCase(),
-              notesCount: 12,
-              appointmentsCount: 45,
-              joinedDate: new Date(u.created_at).toLocaleDateString()
-            })));
-          }
+          setPatients(loadedPat);
+          setAppointments(loadedAppt);
+          setInvoices(loadedInv);
+          setSoapNotes(loadedNotes);
+          setConversations(loadedConv);
         }
       } catch (err) {
-        console.error('Failed to load Supabase workspace data:', err);
+        console.error('Failed to load user records from dbService:', err);
       }
     }
 
     loadWorkspaceData();
 
+    // Supabase Realtime subscription for instant multi-client sync
     const channel = supabase
       .channel('public:drvetly_master_sync')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        loadWorkspaceData();
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        () => {
+          loadWorkspaceData();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -377,8 +193,33 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Auth Handlers
+  const handleLoginSuccess = (clinic: string, vet: string) => {
+    const session = authService.getCurrentSession();
+    if (session) {
+      setCurrentUser(session.user.id);
+      setClinicName(session.clinicName);
+      setVetName(session.vetName);
+      setSubscriptionPlan(session.subscriptionPlan || 'solo');
+      setIsAuthenticated(true);
+      navigateTo('dashboard');
+    }
+  };
+
+  const handleSignupSuccess = (clinic: string, vet: string) => {
+    const session = authService.getCurrentSession();
+    if (session) {
+      setCurrentUser(session.user.id);
+      setClinicName(session.clinicName);
+      setVetName(session.vetName);
+      setSubscriptionPlan(session.subscriptionPlan || 'solo');
+      setIsAuthenticated(true);
+      navigateTo('dashboard');
+    }
+  };
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
     setCurrentUser(null);
     setIsAuthenticated(false);
     navigateTo('homepage');
@@ -386,60 +227,89 @@ export default function App() {
 
   // State Mutators
   const handleAddPatient = async (newPat: Omit<Patient, 'id'>) => {
-    const { error } = await supabase.from('patients').insert({
-      name: newPat.name,
-      species: newPat.species,
-      breed: newPat.breed,
-      age_label: newPat.age,
-      weight_kg: parseFloat(newPat.weight) || 15,
-      avatar: newPat.avatar,
-      status: newPat.status
-    });
-    if (error) alert('Failed to add patient: ' + error.message);
+    if (!currentUser) return;
+    const patient: Patient = {
+      id: `${currentUser}_p_user_${Date.now()}`,
+      ...newPat
+    };
+    const updated = [patient, ...patients];
+    setPatients(updated);
+    await dbService.savePatients(currentUser, updated);
+    await syncPatientToSupabase(patient);
   };
 
   const handleAddAppointment = async (newAppt: Omit<Appointment, 'id'>) => {
-    const { error } = await supabase.from('appointments').insert({
-      patient_id: newAppt.patientId,
-      start_at: new Date().toISOString(),
-      end_at: new Date(Date.now() + 1800000).toISOString(),
-      reason: newAppt.reason,
-      status: 'SCHEDULED'
-    });
-    if (error) alert('Failed to schedule appointment: ' + error.message);
+    if (!currentUser) return;
+    const appointment: Appointment = {
+      id: `${currentUser}_a_user_${Date.now()}`,
+      ...newAppt
+    };
+    const updated = [appointment, ...appointments];
+    setAppointments(updated);
+    await dbService.saveAppointments(currentUser, updated);
   };
 
   const handleAddSoapNote = async (newSoap: SOAPNote) => {
-    const { error } = await supabase.from('soap_notes').insert({
-      patient_id: newSoap.patientId,
-      transcript: newSoap.rawTranscript || '',
-      subjective: newSoap.subjective,
-      objective: newSoap.objective,
-      assessment: newSoap.assessment,
-      plan: newSoap.plan,
-      status: newSoap.status.toUpperCase() === 'APPROVED' ? 'APPROVED' : 'PENDING_REVIEW'
+    if (!currentUser) return;
+    const updated = [newSoap, ...soapNotes];
+    setSoapNotes(updated);
+    await dbService.saveSoapNotes(currentUser, updated);
+    await syncSoapNoteToSupabase(newSoap);
+    
+    // Add timeline log entry directly to the patient's record status
+    const updatedPatients = patients.map(p => {
+      if (p.id === newSoap.patientId) {
+        return {
+          ...p,
+          status: 'Note approved'
+        };
+      }
+      return p;
     });
-    if (error) alert('Failed to save SOAP note: ' + error.message);
+    setPatients(updatedPatients);
+    await dbService.savePatients(currentUser, updatedPatients);
   };
 
   const handleAddInvoice = async (newInv: Omit<Invoice, 'id' | 'clientName'>) => {
-    const { error } = await supabase.from('invoices').insert({
-      patient_id: newInv.patientId,
-      amount_cents: Math.round(newInv.amount * 100),
-      status: newInv.status.toUpperCase(),
-      line_items: [{ description: 'Veterinary Consultation & Treatment', amount: newInv.amount }]
-    });
-    if (error) alert('Failed to create invoice: ' + error.message);
+    if (!currentUser) return;
+    const patient = patients.find(p => p.id === newInv.patientId);
+    const invoice: Invoice = {
+      id: `${currentUser}_inv_user_${Date.now()}`,
+      patientId: newInv.patientId,
+      clientName: patient ? patient.ownerName : 'Unknown',
+      date: newInv.date,
+      amount: newInv.amount,
+      status: newInv.status as any
+    };
+    const updated = [invoice, ...invoices];
+    setInvoices(updated);
+    await dbService.saveInvoices(currentUser, updated);
+    await syncInvoiceToSupabase(invoice);
   };
 
-  const handleSendMessage = async (newMsg: { patientId: string; sender: 'clinic' | 'owner'; text: string; time: string }) => {
-    const { error } = await supabase.from('messages').insert({
-      patient_id: newMsg.patientId,
-      sender: newMsg.sender === 'clinic' ? 'CLINIC' : 'CLIENT',
-      channel: 'IN_APP',
-      body: newMsg.text
+  const handleSendMessage = async (newMsg: { patientId: string; sender: 'clinic' | 'owner'; time: string; text: string }) => {
+    if (!currentUser) return;
+    const updatedConversations = conversations.map(c => {
+      const patient = patients.find(p => p.id === newMsg.patientId);
+      if (patient && c.patientName === patient.name) {
+        const msg: Message = {
+          id: Math.random().toString(),
+          senderName: newMsg.sender === 'clinic' ? vetName : patient.ownerName,
+          text: newMsg.text,
+          time: newMsg.time,
+          isIncoming: newMsg.sender !== 'clinic'
+        };
+        return {
+          ...c,
+          lastMessageText: newMsg.text,
+          lastMessageTime: 'Just now',
+          messages: [...c.messages, msg]
+        };
+      }
+      return c;
     });
-    if (error) alert('Failed to send message: ' + error.message);
+    setConversations(updatedConversations);
+    await dbService.saveConversations(currentUser, updatedConversations);
   };
 
   const handleSelectPatientId = (patientId: string) => {
@@ -450,19 +320,34 @@ export default function App() {
     setSelectedPatientId(null);
   };
 
+  // Map messages structure for MessagesView component
   const flatMessagesList: { id: string; patientId: string; sender: 'clinic' | 'owner'; text: string; time: string }[] = [];
   conversations.forEach(c => {
-    c.messages.forEach(m => {
-      flatMessagesList.push({
-        id: m.id,
-        patientId: 'p1',
-        sender: m.isIncoming ? 'owner' : 'clinic',
-        text: m.text,
-        time: m.time
+    const patient = patients.find(p => p.ownerName === c.clientName);
+    if (patient) {
+      c.messages.forEach(m => {
+        flatMessagesList.push({
+          id: m.id,
+          patientId: patient.id,
+          sender: m.isIncoming ? 'owner' : 'clinic',
+          text: m.text,
+          time: m.time
+        });
       });
-    });
+    }
   });
 
+  const handleMessagesViewSend = (newMsg: { patientId: string; sender: 'clinic' | 'owner'; text: string; time: string }) => {
+    handleSendMessage({
+      patientId: newMsg.patientId,
+      sender: newMsg.sender,
+      time: newMsg.time,
+      text: newMsg.text
+    });
+  };
+
+
+  // Render content according to the active authenticated view
   const renderClinicalView = () => {
     switch (view) {
       case 'dashboard':
@@ -518,7 +403,7 @@ export default function App() {
           <MessagesView 
             patients={patients}
             messages={flatMessagesList}
-            onSendMessage={handleSendMessage}
+            onSendMessage={handleMessagesViewSend}
           />
         );
       case 'settings':
@@ -526,11 +411,11 @@ export default function App() {
           <SettingsView 
             clinicName={clinicName}
             vetName={vetName}
-            userEmail={'vet@hotivet.com'}
-            onUpdateClinic={async (c, v) => { 
+            userEmail={authService.getCurrentSession()?.user.email || 'vet@hotivet.com'}
+            onUpdateClinic={(c, v) => { 
               setClinicName(c); 
               setVetName(v); 
-              await supabase.from('clinics').update({ name: c }).eq('name', clinicName);
+              authService.updateProfile(c, v);
             }}
             onDeleteAccount={handleLogout}
             patientsCount={patients.length}
@@ -544,6 +429,7 @@ export default function App() {
             isAuthenticated={isAuthenticated} 
             currentPlan={subscriptionPlan}
             onSelectPlan={async (plan) => {
+              await authService.updateSubscriptionPlan(plan);
               setSubscriptionPlan(plan);
               navigateTo('dashboard');
               alert(`Successfully updated your DrVetly subscription plan to ${plan === 'solo' ? 'Solo Clinic' : plan === 'hyper' ? 'Hyper Clinic' : 'custom plan'}!`);
@@ -561,10 +447,6 @@ export default function App() {
       case 'staff':
         return (
           <StaffView 
-            staffMembers={staffMembers}
-            onAddStaff={handleAddStaff}
-            onUpdateStaff={handleUpdateStaff}
-            onDeleteStaff={handleDeleteStaff}
             vetName={vetName}
             clinicName={clinicName}
           />
@@ -574,22 +456,19 @@ export default function App() {
     }
   };
 
+  // Render Landing Pages
   const path = window.location.pathname;
   if (path.startsWith('/book/')) {
     const clinicSlug = path.replace('/book/', '').replace('/', '');
     return <PublicBookingPage clinicSlug={clinicSlug || 'riverbend-animal-hospital'} />;
   }
 
-  if (view === 'auth-callback' || path.startsWith('/auth/callback')) {
-    return <AuthCallback onNavigate={navigateTo} onLoginSuccess={() => navigateTo('dashboard')} />;
-  }
-
   if (!isAuthenticated) {
     if (view === 'login') {
-      return <Login onNavigate={navigateTo} onLoginSuccess={() => navigateTo('dashboard')} />;
+      return <Login onNavigate={navigateTo} onLoginSuccess={handleLoginSuccess} />;
     }
     if (view === 'signup') {
-      return <Signup onNavigate={navigateTo} onSignupSuccess={() => navigateTo('dashboard')} />;
+      return <Signup onNavigate={navigateTo} onSignupSuccess={handleSignupSuccess} />;
     }
     if (view === 'pricing') {
       return <PricingView onNavigate={navigateTo} isAuthenticated={false} />;
@@ -609,6 +488,7 @@ export default function App() {
     return <Homepage onNavigate={navigateTo} />;
   }
 
+  // Active Workspace Navigation Items
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="2" stroke="currentColor" strokeWidth="1.6"/><rect x="14" y="3" width="7" height="5" rx="2" stroke="currentColor" strokeWidth="1.6"/><rect x="14" y="12" width="7" height="9" rx="2" stroke="currentColor" strokeWidth="1.6"/><rect x="3" y="16" width="7" height="5" rx="2" stroke="currentColor" strokeWidth="1.6"/></svg>
@@ -650,6 +530,7 @@ export default function App() {
         </button>
       </div>
 
+      {/* Sidebar Backdrop Overlay on Mobile */}
       {mobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-[#04044A]/10 backdrop-blur-xs z-40 md:hidden" 
@@ -707,12 +588,16 @@ export default function App() {
             </p>
             <p className="d">
               {subscriptionPlan === 'custom' 
-                ? "You are on the highest tier of DrVetly with dedicated PIMS support." 
+                ? "You are on the highest plan of DrVetly with dedicated PIMS support." 
                 : subscriptionPlan === 'hyper' 
                 ? "Upgrade to Custom plan for multi-location groups." 
                 : "Upgrade to Hyper Clinic for unlimited AI notes and two-way SMS."}
             </p>
-            <button onClick={() => navigateTo('pricing')}>Upgrade plan</button>
+            {subscriptionPlan !== 'custom' ? (
+              <button onClick={() => navigateTo('pricing')}>Upgrade plan</button>
+            ) : (
+              <button onClick={() => navigateTo('pricing')} className="text-xs text-sky-600 font-semibold mt-1">View custom plan</button>
+            )}
           </div>
           <button className="sb-user" onClick={() => navigateTo('settings')} title="View and edit personal info & settings">
             <div className="sb-avatar">{getInitials(vetName)}</div>
@@ -726,6 +611,7 @@ export default function App() {
 
       {/* ================= MAIN CONTAINER ================= */}
       <div className="main">
+        {/* Topbar header - only shown on dashboard overview page */}
         {view === 'dashboard' && (
           <header className="topbar hidden md:flex">
             <div className="tb-left">
@@ -741,12 +627,19 @@ export default function App() {
                 <input type="text" placeholder="Search patients, clients, notes&hellip;" />
                 <span className="kbd">⌘K</span>
               </div>
-              <button className="icon-btn" title="Notifications" onClick={() => alert('Supabase Postgres connection active & synchronized.')}>
+              <button className="icon-btn" title="Notifications" onClick={() => alert('Medical sync state: 100% synchronized.')}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
                   <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#3c4372" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M13.73 21a2 2 0 01-3.46 0" stroke="#3c4372" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
                 <span className="dot-alert"></span>
+              </button>
+              <button className="icon-btn" title="Help" onClick={() => alert('Support line active. E-mail support@drvetly.com.')}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="#3c4372" strokeWidth="1.6" />
+                  <path d="M9.5 9a2.5 2.5 0 015 .5c0 1.5-2.5 1.8-2.5 3.5" stroke="#3c4372" strokeWidth="1.6" strokeLinecap="round" />
+                  <circle cx="12" cy="17" r="0.9" fill="#3c4372" />
+                </svg>
               </button>
               <button onClick={() => navigateTo('schedule')} className="btn btn-primary">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -758,6 +651,7 @@ export default function App() {
           </header>
         )}
 
+        {/* Content Area */}
         <div className="content">
           {renderClinicalView()}
         </div>

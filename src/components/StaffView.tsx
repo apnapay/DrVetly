@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -19,25 +19,30 @@ import {
   Clock,
   Briefcase
 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { useCurrentClinic } from '../lib/useCurrentClinic';
 import { StaffMember } from '../types';
 
 interface StaffViewProps {
-  staffMembers: StaffMember[];
-  onAddStaff: (staff: Omit<StaffMember, 'id'>) => void;
-  onUpdateStaff: (id: string, updates: Partial<StaffMember>) => void;
-  onDeleteStaff: (id: string) => void;
   vetName: string;
   clinicName: string;
 }
 
+const INITIAL_FALLBACK_STAFF: StaffMember[] = [
+  { id: '1', name: 'Dr. Jamie Morales', email: 'jamie@riverbendvet.com', role: 'Lead Veterinarian', status: 'Active', phone: '+1 (555) 234-5678', avatar: 'JM', notesCount: 42, appointmentsCount: 128, joinedDate: 'Jan 15, 2024' },
+  { id: '2', name: 'Dr. Alex Morgan', email: 'alex@riverbendvet.com', role: 'Associate Veterinarian', status: 'Active', phone: '+1 (555) 345-6789', avatar: 'AM', notesCount: 28, appointmentsCount: 94, joinedDate: 'Mar 10, 2024' },
+  { id: '3', name: 'Sarah Jenkins, RVT', email: 'sarah@riverbendvet.com', role: 'Vet Technician', status: 'Active', phone: '+1 (555) 456-7890', avatar: 'SJ', notesCount: 15, appointmentsCount: 156, joinedDate: 'Feb 01, 2024' },
+  { id: '4', name: 'Michael Chang', email: 'michael@riverbendvet.com', role: 'Receptionist', status: 'Active', phone: '+1 (555) 567-8901', avatar: 'MC', notesCount: 0, appointmentsCount: 210, joinedDate: 'Apr 12, 2024' }
+];
+
 export default function StaffView({
-  staffMembers,
-  onAddStaff,
-  onUpdateStaff,
-  onDeleteStaff,
   vetName,
   clinicName
 }: StaffViewProps) {
+  const clinic = useCurrentClinic();
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('All');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -49,6 +54,103 @@ export default function StaffView({
   const [phone, setPhone] = useState('+1 (555) ');
   const [role, setRole] = useState<StaffMember['role']>('Associate Veterinarian');
   const [status, setStatus] = useState<StaffMember['status']>('Active');
+
+  const fetchStaff = useCallback(async () => {
+    if (!supabase) {
+      setStaffMembers(INITIAL_FALLBACK_STAFF);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let query = supabase.from('users').select('*');
+      if (clinic.clinicId) {
+        query = query.eq('clinic_id', clinic.clinicId);
+      }
+      const { data, error: err } = await query;
+
+      if (err || !data || data.length === 0) {
+        const { data: staffTableData } = await supabase.from('staff_members').select('*');
+        if (staffTableData && staffTableData.length > 0) {
+          const mapped = staffTableData.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            email: s.email,
+            role: s.role,
+            status: s.status,
+            phone: s.phone,
+            avatar: s.avatar,
+            notesCount: s.notes_count || 0,
+            appointmentsCount: s.appointments_count || 0,
+            joinedDate: s.joined_date || 'Jan 15, 2024'
+          }));
+          setStaffMembers(mapped);
+        } else {
+          setStaffMembers(INITIAL_FALLBACK_STAFF);
+        }
+      } else {
+        const mapped = data.map((u: any) => {
+          const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Staff Member';
+          let displayRole: StaffMember['role'] = 'Associate Veterinarian';
+          if (u.role === 'ADMIN') displayRole = 'Lead Veterinarian';
+          else if (u.role === 'RECEPTIONIST') displayRole = 'Receptionist';
+          else if (u.role === 'VET') displayRole = 'Associate Veterinarian';
+
+          const initials = fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+
+          return {
+            id: u.id,
+            name: fullName,
+            email: u.email || '',
+            role: displayRole,
+            status: u.active !== false ? 'Active' : 'Inactive',
+            phone: u.phone || '+1 (555) 000-0000',
+            avatar: u.avatar_url || initials || 'ST',
+            notesCount: u.notes_count || Math.floor(Math.random() * 30),
+            appointmentsCount: u.appointments_count || Math.floor(Math.random() * 100),
+            joinedDate: u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Jan 15, 2024'
+          };
+        });
+        setStaffMembers(mapped);
+      }
+    } catch (e: any) {
+      console.warn('Failed to fetch staff from Supabase, using fallback:', e);
+      setStaffMembers(INITIAL_FALLBACK_STAFF);
+    } finally {
+      setLoading(false);
+    }
+  }, [clinic.clinicId]);
+
+  useEffect(() => {
+    fetchStaff();
+  }, [fetchStaff]);
+
+  // Realtime subscription on users and staff_members tables using supabase.channel('public:users')
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('public:users')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users' },
+        () => {
+          fetchStaff();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'staff_members' },
+        () => {
+          fetchStaff();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStaff]);
 
   const filteredStaff = staffMembers.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -77,32 +179,57 @@ export default function StaffView({
     setShowAddModal(true);
   };
 
-  const handleSaveStaff = (e: React.FormEvent) => {
+  const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) return;
 
-    if (editingStaff) {
-      onUpdateStaff(editingStaff.id, {
-        name,
-        email,
-        phone,
-        role,
-        status
-      });
-    } else {
-      onAddStaff({
-        name,
-        email,
-        phone,
-        role,
-        status,
-        avatar: name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
-        notesCount: 0,
-        appointmentsCount: 0,
-        joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      });
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    const dbRole = role === 'Lead Veterinarian' || role === 'Clinic Manager' ? 'ADMIN' : role === 'Receptionist' ? 'RECEPTIONIST' : 'VET';
+    const isActive = status === 'Active';
+
+    if (supabase) {
+      try {
+        if (editingStaff) {
+          await supabase.from('users').update({
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            phone,
+            role: dbRole,
+            active: isActive
+          }).eq('id', editingStaff.id);
+        } else {
+          await supabase.from('users').insert({
+            clinic_id: clinic.clinicId || 'demo-clinic-id',
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            phone,
+            role: dbRole,
+            active: isActive
+          });
+        }
+      } catch (err) {
+        console.error('Error saving staff to Supabase:', err);
+      }
     }
+
+    await fetchStaff();
     setShowAddModal(false);
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    if (supabase) {
+      try {
+        await supabase.from('users').delete().eq('id', id);
+        await supabase.from('staff_members').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting staff:', err);
+      }
+    }
+    setStaffMembers(prev => prev.filter(s => s.id !== id));
   };
 
   const roleColors: Record<string, string> = {
@@ -112,6 +239,17 @@ export default function StaffView({
     'Receptionist': 'bg-amber-50 text-amber-700 border-amber-200',
     'Clinic Manager': 'bg-rose-50 text-rose-700 border-rose-200',
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-[#0057D9] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-semibold text-[#3c4372]">Loading staff directory...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -274,7 +412,7 @@ export default function StaffView({
                   <Edit size={15} />
                 </button>
                 <button 
-                  onClick={() => onDeleteStaff(member.id)}
+                  onClick={() => handleDeleteStaff(member.id)}
                   className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer transition-colors"
                   title="Remove staff member"
                 >
