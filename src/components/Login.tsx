@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Shield, Eye, EyeOff, AlertCircle, Database, CheckCircle2, Stethoscope } from 'lucide-react';
-import { authService, isSupabaseConfigured, forceLocalMode } from '../supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
 interface LoginProps {
   onNavigate: (view: 'homepage' | 'login' | 'signup' | 'dashboard' | 'pricing') => void;
@@ -13,7 +13,6 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   
-  // Auth interactive state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -23,8 +22,22 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
     setErrorMsg(null);
 
     try {
-      const session = await authService.signIn(email, password);
-      onLoginSuccess(session.clinicName, session.vetName);
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (authError) throw authError;
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*, clinics(name)')
+        .eq('auth_id', authData.user.id)
+        .maybeSingle();
+
+      const clinicName = (userData?.clinics as any)?.name || 'Riverbend Animal Hospital';
+      const vetName = userData ? `${userData.first_name} ${userData.last_name}` : 'Dr. Jamie Morales';
+
+      onLoginSuccess(clinicName, vetName);
     } catch (err: any) {
       console.error('Login error:', err);
       setErrorMsg(err.message || 'Failed to authenticate. Please check your credentials and try again.');
@@ -38,12 +51,10 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
       
       {/* ============ LEFT VISUAL SIDE ============ */}
       <aside className="relative overflow-hidden bg-gradient-to-tr from-[#04044A] via-[#000675] to-[#00E1FF] p-14 flex-col justify-between text-white hidden lg:flex">
-        {/* background grids */}
-        <div className="absolute inset-0 opacity-30 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:52px_52px] [mask-image:radial-gradient(70%_60%_at_30%_20%,black,transparent_85%)]"></div>
-        <div className="absolute w-[520px] h-[520px] rounded-full bg-gradient-radial from-[#00E1FF]/30 to-transparent bottom-[-220px] left-[-160px] blur-[10px] animate-drift"></div>
+        <div className="absolute inset-0 opacity-30 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:52px_52px]"></div>
 
         <button onClick={() => onNavigate('homepage')} className="flex items-center gap-3 font-bold text-xl text-white relative z-10 self-start bg-transparent border-none cursor-pointer group">
-          <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+          <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-md">
             <Stethoscope size={20} />
           </div>
           DrVetly
@@ -56,13 +67,6 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
           <p className="mt-4 text-white/80 text-sm leading-relaxed">
             Log in to pick up right where the exam room left off — schedule, chart, and note, all in one place.
           </p>
-
-          {/* vitals animation inside login */}
-          <div className="mt-11 w-full h-[52px] relative overflow-hidden">
-            <svg className="absolute inset-0 w-full h-full stroke-current text-white/90 fill-none" viewBox="0 0 500 52" preserveAspectRatio="none">
-              <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1000" strokeDashoffset="0" d="M0,26 L70,26 L82,8 L96,42 L108,26 L190,26 L202,14 L216,38 L228,26 L310,26 L322,8 L336,42 L348,26 L430,26 L442,14 L456,38 L468,26 L500,26"/>
-            </svg>
-          </div>
         </div>
 
         <div className="relative z-10 pt-10 border-t border-white/18">
@@ -83,19 +87,18 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
         </div>
 
         <div className="w-full max-w-[400px]">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-[#00A4FF] font-semibold mb-3.5 block fade-in">Welcome back</span>
-          <h2 className="text-3xl font-bold tracking-tight text-[#04044A] fade-in d1">Log in to your clinic</h2>
-          <p className="text-[#3c4372] text-[13.8px] leading-relaxed mt-2.5 mb-8 fade-in d1">Enter your details to get back to today's schedule.</p>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-[#00A4FF] font-semibold mb-3.5 block">Welcome back</span>
+          <h2 className="text-3xl font-bold tracking-tight text-[#04044A]">Log in to your clinic</h2>
+          <p className="text-[#3c4372] text-[13.8px] leading-relaxed mt-2.5 mb-8">Enter your credentials to connect to your live Supabase clinic database.</p>
 
-          {/* Credentials Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 fade-in d3">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {errorMsg && (
               <div className="flex flex-col gap-2.5 p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs leading-relaxed">
                 <div className="flex items-start gap-2.5">
                   <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold">Authentication failed: </span>
-                    {errorMsg.replace('FAILED_TO_FETCH: ', '')}
+                    {errorMsg}
                   </div>
                 </div>
               </div>
@@ -138,62 +141,51 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs font-semibold py-1.5">
-              <label className="flex items-center gap-2 text-[#3c4372] cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 rounded border-[#dfe7f4] accent-[#00A4FF] cursor-pointer"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  disabled={isLoading}
-                />
-                Remember me
-              </label>
-              <button type="button" onClick={() => alert('Check the local development .env variable declarations or connect with a different email.')} className="text-[#00A4FF] hover:underline bg-transparent border-none cursor-pointer">Forgot password?</button>
-            </div>
-
             <button 
               type="submit" 
               disabled={isLoading}
-              className={`w-full py-4 text-white rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                isLoading 
-                  ? 'bg-slate-400 cursor-wait' 
-                  : 'bg-gradient-to-r from-[#04044A] via-[#000675] to-[#0057D9] shadow-[0_10px_24px_-6px_rgba(0,120,255,0.45)] hover:shadow-[0_14px_30px_-6px_rgba(0,120,255,0.55)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer'
-              }`}
+              className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-[#0057D9] to-[#00A4FF] text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
             >
-              {isLoading ? 'Verifying Session...' : 'Log in to DrVetly'}
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                'Log in to Clinic'
+              )}
             </button>
+
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-[#dfe7f4]"></div>
+              <span className="flex-shrink mx-4 text-xs text-[#8a92b8] font-medium">or continue with</span>
+              <div className="flex-grow border-t border-[#dfe7f4]"></div>
+            </div>
 
             <button 
               type="button"
               onClick={async () => {
-                setIsLoading(true);
                 try {
-                  const session = await authService.signIn('vet@hotivet.com', 'password123');
-                  onLoginSuccess(session.clinicName, session.vetName);
+                  const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                      redirectTo: `${window.location.origin}/auth/callback`,
+                      queryParams: { access_type: 'offline', prompt: 'consent' },
+                    },
+                  });
+                  if (error) throw error;
                 } catch (err: any) {
-                  setErrorMsg(err.message);
-                } finally {
-                  setIsLoading(false);
+                  setErrorMsg(err.message || 'Google sign-in failed.');
                 }
               }}
-              className="w-full py-3 bg-[#eef3fb] hover:bg-[#e2edf9] text-[#0057D9] rounded-xl text-xs font-bold transition-all border border-[#bfe6ff] cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full py-3 px-4 rounded-xl border border-[#dfe7f4] bg-white text-[#04044A] font-semibold text-sm hover:bg-slate-50 transition-all cursor-pointer flex items-center justify-center gap-3 shadow-xs"
             >
-              <Database size={13} /> Demo Quick Login (One-Click)
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.95H1.2v3.15C3.18 21.3 7.22 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.28 14.25c-.25-.72-.38-1.49-.38-2.25s.13-1.53.38-2.25V6.6H1.2C.44 8.14 0 9.87 0 12s.44 3.86 1.2 5.4l4.08-3.15z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.22 0 3.18 2.7 1.2 6.6l4.08 3.15c.95-2.84 3.6-4.95 6.72-4.95z"/>
+              </svg>
+              Continue with Google
             </button>
           </form>
-
-          <p className="text-center text-[13.8px] text-[#3c4372] mt-6 fade-in d4">
-            Don't have an account?{' '}
-            <button onClick={() => onNavigate('signup')} className="text-[#00A4FF] hover:underline font-bold bg-transparent border-none cursor-pointer">
-              Start your free trial
-            </button>
-          </p>
-
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-[#dfe7f4] text-[11px] font-medium text-[#3c4372]/65 fade-in d4">
-            <span className="flex items-center gap-1.5"><Shield size={13} /> 256-bit encryption</span>
-            <span className="flex items-center gap-1.5"><Shield size={13} /> HIPAA-minded cloud</span>
-          </div>
         </div>
       </main>
     </div>

@@ -314,33 +314,6 @@ app.post("/api/crem/webhook", (req, res) => {
   res.json({ received: true, status: 'processed_by_crem_io' });
 });
 
-// Google Calendar Sync API Endpoints
-app.post("/api/calendar/connect", (req, res) => {
-  const { email, calendarName } = req.body;
-  console.log(`Google Calendar connected for ${email} (${calendarName}) with scopes https://www.googleapis.com/auth/calendar, https://www.googleapis.com/auth/calendar.events`);
-  res.json({
-    success: true,
-    connected: true,
-    email: email || 'vet.doctor@hospital.com',
-    calendarName: calendarName || 'Primary Veterinary Calendar',
-    scopes: ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events'],
-    message: 'Google Calendar successfully connected with bidirectional sync and live event webhooks active.'
-  });
-});
-
-app.post("/api/calendar/sync", (req, res) => {
-  const { action, eventTitle, appointmentId } = req.body;
-  console.log(`Google Calendar Sync Event: [${action}] for "${eventTitle}" (ID: ${appointmentId})`);
-  res.json({
-    success: true,
-    action: action || 'SYNC_APPOINTMENT',
-    syncedAt: new Date().toISOString(),
-    googleEventId: `gcal_evt_${Math.random().toString(36).substring(2, 10)}`,
-    status: 'SUCCESS',
-    message: 'Successfully synchronized with Google Calendar in real-time.'
-  });
-});
-
 // Vite middleware setup
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
