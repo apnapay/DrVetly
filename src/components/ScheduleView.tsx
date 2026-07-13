@@ -10,11 +10,13 @@ import {
   UserCheck,
   ExternalLink,
   Settings2,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useCurrentClinic } from '../lib/useCurrentClinic';
 import { renderPatientAvatar } from '../lib/supabaseStorage';
-import type { Appointment, VetUser } from '../lib/types';
+import type { Patient, Appointment, VetUser } from '../lib/types';
 import NewAppointmentModal from './NewAppointmentModal';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
 import EventTypesManagerModal from './EventTypesManagerModal';
@@ -51,7 +53,15 @@ function statusClass(status: Appointment['status']): string {
   }
 }
 
-export default function ScheduleView() {
+interface ScheduleViewProps {
+  patients: Patient[];
+  appointments: Appointment[];
+  onAddAppointment: (appointment: any) => void;
+  vetName: string;
+  onNavigateToPatients?: () => void;
+}
+
+export default function ScheduleView({ patients, onNavigateToPatients }: ScheduleViewProps) {
   const clinic = useCurrentClinic();
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
@@ -64,6 +74,8 @@ export default function ScheduleView() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
   const [showEventTypesModal, setShowEventTypesModal] = useState(false);
+  const [showSoonModal, setShowSoonModal] = useState(false);
+  const [soonFeatureTitle, setSoonFeatureTitle] = useState('');
 
   const weekEnd = useMemo(() => {
     const d = new Date(weekStart);
@@ -211,20 +223,24 @@ export default function ScheduleView() {
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => setShowEventTypesModal(true)}
+            onClick={() => {
+              setSoonFeatureTitle('Booking Event Types Management');
+              setShowSoonModal(true);
+            }}
             className="btn btn-outline bg-white hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
           >
             <Settings2 size={14} className="mr-1.5" /> Booking event types
           </button>
           {clinic.clinicSlug && (
-            <a
-              href={`/book/${clinic.clinicSlug}`}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={() => {
+                setSoonFeatureTitle('Public Booking Page');
+                setShowSoonModal(true);
+              }}
               className="btn btn-soft bg-blue-50 text-[#0057D9] hover:bg-blue-100 text-xs font-bold transition-all cursor-pointer inline-flex items-center"
             >
               <ExternalLink size={14} className="mr-1.5" /> View public booking page
-            </a>
+            </button>
           )}
           <button
             onClick={() => setShowNewModal(true)}
@@ -531,10 +547,15 @@ export default function ScheduleView() {
         <NewAppointmentModal
           clinicId={clinic.clinicId}
           vets={vets}
+          patients={patients}
           onClose={() => setShowNewModal(false)}
           onCreated={() => {
             setShowNewModal(false);
             fetchAppointments();
+          }}
+          onNavigateToPatients={() => {
+            setShowNewModal(false);
+            if (onNavigateToPatients) onNavigateToPatients();
           }}
         />
       )}
@@ -551,6 +572,45 @@ export default function ScheduleView() {
 
       {showEventTypesModal && clinic.clinicId && (
         <EventTypesManagerModal clinicId={clinic.clinicId} clinicSlug={clinic.clinicSlug} vets={vets} onClose={() => setShowEventTypesModal(false)} />
+      )}
+
+      {showSoonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#e3eaf6] max-w-md w-full p-6 relative overflow-hidden text-left">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#0057D9] to-[#00A4FF]" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0057D9] flex items-center justify-center font-bold">
+                <Sparkles size={20} />
+              </div>
+              <button
+                onClick={() => setShowSoonModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <h3 className="text-lg font-bold text-[#04044A] mb-1">
+              Releasing this feature soon
+            </h3>
+            <p className="text-xs font-semibold text-[#0057D9] mb-3">
+              {soonFeatureTitle}
+            </p>
+            <p className="text-xs text-[#5a6291] leading-relaxed mb-6">
+              We are putting the final touches on this capability for your core SaaS MVP production launch on Vercel. It will be available shortly to deliver an exceptional experience for your practice and clients.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowSoonModal(false)}
+                className="btn btn-primary text-xs font-bold px-5 py-2.5 cursor-pointer"
+              >
+                Got it, thanks
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

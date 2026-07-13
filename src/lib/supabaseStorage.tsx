@@ -63,25 +63,37 @@ export async function syncPatientToSupabase(patient: {
   weight: string;
   temp: string;
   avatar?: string;
+  status?: string;
+  lastVisit?: string;
   clinicId?: string;
 }) {
   if (!isSupabaseConfigured || !supabase) return;
 
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+    const isValidUuid = userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+
     const { error } = await supabase.from('patients').upsert({
-      id: patient.id.startsWith('mock') ? undefined : patient.id,
+      id: patient.id,
+      ...(isValidUuid ? { user_id: userId } : {}),
       name: patient.name,
       species: patient.species,
       breed: patient.breed,
       age: patient.age,
+      owner_name: patient.ownerName,
       weight: patient.weight,
       temp: patient.temp,
       avatar: patient.avatar || '🐶',
+      status: patient.status || 'New patient',
+      last_visit: patient.lastVisit || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       updated_at: new Date().toISOString()
     });
-    if (error) console.error('Supabase patient sync error:', error.message);
+    if (error) {
+      console.debug('Supabase patient sync notice:', error.message);
+    }
   } catch (err) {
-    console.error('Patient sync exception:', err);
+    // ignore network or offline exceptions gracefully
   }
 }
 

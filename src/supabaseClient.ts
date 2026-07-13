@@ -2,12 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Patient, Appointment, SOAPNote, Invoice, Conversation, Message, StaffMember } from './types';
 import { INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_SOAP_NOTES, INITIAL_INVOICES, INITIAL_CONVERSATIONS } from './data';
 
-export const INITIAL_STAFF_MEMBERS: StaffMember[] = [
-  { id: '1', name: 'Dr. Jamie Morales', email: 'jamie@riverbendvet.com', role: 'Lead Veterinarian', status: 'Active', phone: '+1 (555) 234-5678', avatar: 'JM', notesCount: 42, appointmentsCount: 128, joinedDate: 'Jan 15, 2024' },
-  { id: '2', name: 'Dr. Alex Morgan', email: 'alex@riverbendvet.com', role: 'Associate Veterinarian', status: 'Active', phone: '+1 (555) 345-6789', avatar: 'AM', notesCount: 28, appointmentsCount: 94, joinedDate: 'Mar 10, 2024' },
-  { id: '3', name: 'Sarah Jenkins, RVT', email: 'sarah@riverbendvet.com', role: 'Vet Technician', status: 'Active', phone: '+1 (555) 456-7890', avatar: 'SJ', notesCount: 15, appointmentsCount: 156, joinedDate: 'Feb 01, 2024' },
-  { id: '4', name: 'Michael Chang', email: 'michael@riverbendvet.com', role: 'Receptionist', status: 'Active', phone: '+1 (555) 567-8901', avatar: 'MC', notesCount: 0, appointmentsCount: 210, joinedDate: 'Apr 12, 2024' }
-];
+export const INITIAL_STAFF_MEMBERS: StaffMember[] = [];
 
 const getSupabaseConfig = () => {
   const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
@@ -139,6 +134,15 @@ function getInitialSeedData<T>(key: string, initial: T[]): T[] {
     }
   }
   return initial;
+}
+
+function isValidUuid(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+function filterRealPatients(list: Patient[]): Patient[] {
+  const sampleNames = ['bella', 'harry', 'milo', 'rocky', 'luna', 'coco', 'max', 'duke', 'oreo', 'javed', 'naimutallah', 'hi'];
+  return list.filter(p => p.id !== 'p1' && p.id !== 'p2' && !sampleNames.includes(p.name.toLowerCase()));
 }
 
 // Generate SQL schemas so the user can easily copy and execute them in Supabase
@@ -672,7 +676,8 @@ export const dbService = {
   // PATIENTS CRUD
   // ----------------------------------------
   async getPatients(userId: string): Promise<Patient[]> {
-    if (isSupabaseConfigured && supabase) {
+    let raw: Patient[] = [];
+    if (isSupabaseConfigured && supabase && isValidUuid(userId)) {
       try {
         const { data, error } = await supabase
           .from('patients')
@@ -680,13 +685,8 @@ export const dbService = {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
         
-        if (error) {
-          console.warn('Supabase patients fetch failed, using local storage fallback:', error.message);
-          return getInitialSeedData(`patients_${userId}`, INITIAL_PATIENTS);
-        }
-
-        if (data && data.length > 0) {
-          return data.map(p => ({
+        if (!error && data && data.length > 0) {
+          raw = data.map(p => ({
             id: p.id,
             name: p.name,
             species: p.species,
@@ -700,22 +700,26 @@ export const dbService = {
             temp: p.temp
           }));
         }
-      } catch (err: any) {
-        console.warn('Supabase network error in getPatients, using local fallback:', err.message);
-        return getInitialSeedData(`patients_${userId}`, INITIAL_PATIENTS);
+      } catch {
+        // ignore
       }
     }
-    return getInitialSeedData(`patients_${userId}`, INITIAL_PATIENTS);
+    if (raw.length === 0) {
+      raw = getInitialSeedData(`patients_${userId}`, INITIAL_PATIENTS);
+    }
+    return filterRealPatients(raw);
   },
 
   async savePatients(userId: string, list: Patient[]): Promise<void> {
-    localStorage.setItem(`patients_${userId}`, JSON.stringify(list));
+    const cleanList = filterRealPatients(list);
+    localStorage.setItem(`patients_${userId}`, JSON.stringify(cleanList));
     
     if (isSupabaseConfigured && supabase) {
       try {
-        const payload = list.map(p => ({
+        const validUserId = isValidUuid(userId) ? userId : undefined;
+        const payload = cleanList.map(p => ({
           id: p.id,
-          user_id: userId,
+          ...(validUserId ? { user_id: validUserId } : {}),
           name: p.name,
           species: p.species,
           breed: p.breed,
@@ -728,7 +732,9 @@ export const dbService = {
           temp: p.temp
         }));
         const { error } = await supabase.from('patients').upsert(payload);
-        if (error) console.error('Error saving patients to Supabase:', error);
+        if (error) {
+          console.debug('Supabase patients upsert info:', error.message);
+        }
       } catch (err) {
         // ignore network error
       }
@@ -775,9 +781,10 @@ export const dbService = {
     
     if (isSupabaseConfigured && supabase) {
       try {
+        const validUserId = isValidUuid(userId) ? userId : undefined;
         const payload = list.map(a => ({
           id: a.id,
-          user_id: userId,
+          ...(validUserId ? { user_id: validUserId } : {}),
           time: a.time,
           patient_id: a.patientId,
           reason: a.reason,
@@ -785,7 +792,7 @@ export const dbService = {
           status: a.status
         }));
         const { error } = await supabase.from('appointments').upsert(payload);
-        if (error) console.error('Error saving appointments to Supabase:', error);
+        if (error) console.debug('Supabase appointments upsert info:', error.message);
       } catch (err) {
         // ignore
       }
@@ -796,7 +803,7 @@ export const dbService = {
   // SOAP NOTES CRUD
   // ----------------------------------------
   async getSoapNotes(userId: string): Promise<SOAPNote[]> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && isValidUuid(userId)) {
       try {
         const { data, error } = await supabase
           .from('soap_notes')
@@ -804,12 +811,7 @@ export const dbService = {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.warn('Supabase soap_notes fetch failed, using local storage fallback:', error.message);
-          return getInitialSeedData(`soap_notes_${userId}`, INITIAL_SOAP_NOTES);
-        }
-
-        if (data && data.length > 0) {
+        if (!error && data && data.length > 0) {
           return data.map(s => ({
             id: s.id,
             patientId: s.patient_id,
@@ -823,9 +825,8 @@ export const dbService = {
             rawTranscript: s.raw_transcript
           }));
         }
-      } catch (err: any) {
-        console.warn('Supabase network error in getSoapNotes, using local fallback:', err.message);
-        return getInitialSeedData(`soap_notes_${userId}`, INITIAL_SOAP_NOTES);
+      } catch {
+        // ignore
       }
     }
     return getInitialSeedData(`soap_notes_${userId}`, INITIAL_SOAP_NOTES);
@@ -836,9 +837,10 @@ export const dbService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
+        const validUserId = isValidUuid(userId) ? userId : undefined;
         const payload = list.map(s => ({
           id: s.id,
-          user_id: userId,
+          ...(validUserId ? { user_id: validUserId } : {}),
           patient_id: s.patientId,
           time: s.time,
           vet_name: s.vetName,
@@ -850,7 +852,7 @@ export const dbService = {
           raw_transcript: s.rawTranscript
         }));
         const { error } = await supabase.from('soap_notes').upsert(payload);
-        if (error) console.error('Error saving SOAP notes to Supabase:', error);
+        if (error) console.debug('Supabase soap_notes upsert info:', error.message);
       } catch (err) {
         // ignore
       }
@@ -861,7 +863,7 @@ export const dbService = {
   // INVOICES CRUD
   // ----------------------------------------
   async getInvoices(userId: string): Promise<Invoice[]> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && isValidUuid(userId)) {
       try {
         const { data, error } = await supabase
           .from('invoices')
@@ -869,12 +871,7 @@ export const dbService = {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.warn('Supabase invoices fetch failed, using local storage fallback:', error.message);
-          return getInitialSeedData(`invoices_${userId}`, INITIAL_INVOICES);
-        }
-
-        if (data && data.length > 0) {
+        if (!error && data && data.length > 0) {
           return data.map(i => ({
             id: i.id,
             patientId: i.patient_id,
@@ -884,9 +881,8 @@ export const dbService = {
             status: i.status as any
           }));
         }
-      } catch (err: any) {
-        console.warn('Supabase network error in getInvoices, using local fallback:', err.message);
-        return getInitialSeedData(`invoices_${userId}`, INITIAL_INVOICES);
+      } catch {
+        // ignore
       }
     }
     return getInitialSeedData(`invoices_${userId}`, INITIAL_INVOICES);
@@ -897,9 +893,10 @@ export const dbService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
+        const validUserId = isValidUuid(userId) ? userId : undefined;
         const payload = list.map(i => ({
           id: i.id,
-          user_id: userId,
+          ...(validUserId ? { user_id: validUserId } : {}),
           patient_id: i.patientId,
           client_name: i.clientName,
           date: i.date,
@@ -907,7 +904,7 @@ export const dbService = {
           status: i.status
         }));
         const { error } = await supabase.from('invoices').upsert(payload);
-        if (error) console.error('Error saving invoices to Supabase:', error);
+        if (error) console.debug('Supabase invoices upsert info:', error.message);
       } catch (err) {
         // ignore
       }
@@ -918,7 +915,7 @@ export const dbService = {
   // CONVERSATIONS & MESSAGES CRUD
   // ----------------------------------------
   async getConversations(userId: string): Promise<Conversation[]> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && isValidUuid(userId)) {
       try {
         const { data: convs, error: convsErr } = await supabase
           .from('conversations')
@@ -926,14 +923,8 @@ export const dbService = {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (convsErr) {
-          console.warn('Supabase conversations fetch failed, using local fallback:', convsErr.message);
-          return getInitialSeedData(`conversations_${userId}`, INITIAL_CONVERSATIONS);
-        }
-
-        if (convs && convs.length > 0) {
-          // Fetch all messages for these conversations
-          const { data: msgs, error: msgsErr } = await supabase
+        if (!convsErr && convs && convs.length > 0) {
+          const { data: msgs } = await supabase
             .from('messages')
             .select('*')
             .eq('user_id', userId)
@@ -964,9 +955,8 @@ export const dbService = {
             };
           });
         }
-      } catch (err: any) {
-        console.warn('Supabase network error in getConversations, using local fallback:', err.message);
-        return getInitialSeedData(`conversations_${userId}`, INITIAL_CONVERSATIONS);
+      } catch {
+        // ignore
       }
     }
     return getInitialSeedData(`conversations_${userId}`, INITIAL_CONVERSATIONS);
@@ -976,39 +966,43 @@ export const dbService = {
     localStorage.setItem(`conversations_${userId}`, JSON.stringify(list));
 
     if (isSupabaseConfigured && supabase) {
-      const payloadConvs = list.map(c => ({
-        id: c.id,
-        user_id: userId,
-        client_name: c.clientName,
-        client_initials: c.clientInitials,
-        patient_name: c.patientName,
-        last_message_text: c.lastMessageText,
-        last_message_time: c.lastMessageTime,
-        is_unread: c.isUnread
-      }));
+      try {
+        const validUserId = isValidUuid(userId) ? userId : undefined;
+        const payloadConvs = list.map(c => ({
+          id: c.id,
+          ...(validUserId ? { user_id: validUserId } : {}),
+          client_name: c.clientName,
+          client_initials: c.clientInitials,
+          patient_name: c.patientName,
+          last_message_text: c.lastMessageText,
+          last_message_time: c.lastMessageTime,
+          is_unread: c.isUnread
+        }));
 
-      const { error: convsErr } = await supabase.from('conversations').upsert(payloadConvs);
-      if (convsErr) console.error('Error saving conversations to Supabase:', convsErr);
+        const { error: convsErr } = await supabase.from('conversations').upsert(payloadConvs);
+        if (convsErr) console.debug('Supabase conversations upsert info:', convsErr.message);
 
-      // Save messages in flat structures
-      const flatMsgs: any[] = [];
-      list.forEach(c => {
-        c.messages.forEach(m => {
-          flatMsgs.push({
-            id: m.id,
-            conversation_id: c.id,
-            user_id: userId,
-            sender_name: m.senderName,
-            text: m.text,
-            time: m.time,
-            is_incoming: m.isIncoming
+        const flatMsgs: any[] = [];
+        list.forEach(c => {
+          c.messages.forEach(m => {
+            flatMsgs.push({
+              id: m.id,
+              conversation_id: c.id,
+              ...(validUserId ? { user_id: validUserId } : {}),
+              sender_name: m.senderName,
+              text: m.text,
+              time: m.time,
+              is_incoming: m.isIncoming
+            });
           });
         });
-      });
 
-      if (flatMsgs.length > 0) {
-        const { error: msgsErr } = await supabase.from('messages').upsert(flatMsgs);
-        if (msgsErr) console.error('Error saving messages to Supabase:', msgsErr);
+        if (flatMsgs.length > 0) {
+          const { error: msgsErr } = await supabase.from('messages').upsert(flatMsgs);
+          if (msgsErr) console.debug('Supabase messages upsert info:', msgsErr.message);
+        }
+      } catch {
+        // ignore
       }
     }
   },

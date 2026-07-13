@@ -6,8 +6,10 @@ import type { Patient, VetUser } from '../lib/types';
 interface NewAppointmentModalProps {
   clinicId: string;
   vets: VetUser[];
+  patients?: Patient[];
   onClose: () => void;
   onCreated: () => void;
+  onNavigateToPatients?: () => void;
 }
 
 /**
@@ -16,8 +18,8 @@ interface NewAppointmentModalProps {
  * Same underlying table, so it shows up in the calendar identically and is
  * still protected by the `no_overlapping_vet_appointments` DB constraint.
  */
-export default function NewAppointmentModal({ clinicId, vets, onClose, onCreated }: NewAppointmentModalProps) {
-  const [patients, setPatients] = useState<Patient[]>([]);
+export default function NewAppointmentModal({ clinicId, vets, patients: initialPatients = [], onClose, onCreated, onNavigateToPatients }: NewAppointmentModalProps) {
+  const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [search, setSearch] = useState('');
   const [patientId, setPatientId] = useState('');
   const [vetId, setVetId] = useState(vets[0]?.id ?? '');
@@ -29,18 +31,11 @@ export default function NewAppointmentModal({ clinicId, vets, onClose, onCreated
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadPatients() {
-      const query = supabase
-        .from('patients')
-        .select('id, clinic_id, client_id, name, species, breed, dob, weight_kg, microchip, notes, client:clients(first_name,last_name)')
-        .order('name', { ascending: true })
-        .limit(50);
-
-      const { data } = search ? await query.ilike('name', `%${search}%`) : await query;
-      if (data) setPatients(data as any);
-    }
-    loadPatients();
-  }, [search]);
+    const sampleNames = ['bella', 'harry', 'milo', 'rocky', 'luna', 'coco', 'max', 'duke', 'oreo', 'javed', 'naimutallah', 'hi'];
+    const filteredReal = initialPatients.filter(p => p.id !== 'p1' && p.id !== 'p2' && !sampleNames.includes(p.name.toLowerCase()));
+    const finalFiltered = search ? filteredReal.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) : filteredReal;
+    setPatients(finalFiltered);
+  }, [initialPatients, search]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,16 +48,23 @@ export default function NewAppointmentModal({ clinicId, vets, onClose, onCreated
 
     const startAt = new Date(`${date}T${time}:00`);
     const endAt = new Date(startAt.getTime() + durationMinutes * 60000);
+    const selectedVet = vets.find(v => v.id === vetId);
+    const vetNameStr = selectedVet ? `Dr. ${selectedVet.first_name} ${selectedVet.last_name}` : 'Dr. Veterinarian';
 
-    const { error: insertError } = await supabase.from('appointments').insert({
+    const appointmentPayload = {
+      id: `app_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       clinic_id: clinicId,
       patient_id: patientId,
       vet_id: vetId,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
-      reason: reason || 'General visit',
-      status: 'SCHEDULED',
-    });
+      time: `${date} ${time}`,
+      reason: reason || 'General clinical examination',
+      vet_name: vetNameStr,
+      status: 'SCHEDULED' as const,
+    };
+
+    const { error: insertError } = await supabase.from('appointments').insert(appointmentPayload);
 
     setSubmitting(false);
 
@@ -109,20 +111,36 @@ export default function NewAppointmentModal({ clinicId, vets, onClose, onCreated
                 className="w-full pl-9 pr-4 py-2.5 border border-[#e3eaf6] rounded-xl text-xs text-[#04044A] bg-white focus:outline-none focus:border-[#00A4FF] focus:ring-4 focus:ring-[#00A4FF]/10"
               />
             </div>
-            <select
-              className="w-full px-4 py-3 border border-[#e3eaf6] rounded-xl text-xs text-[#04044A] bg-white focus:outline-none focus:border-[#00A4FF] focus:ring-4 focus:ring-[#00A4FF]/10 font-semibold"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
-              required
-            >
-              <option value="">Select a patient…</option>
-              {patients.map((p: any) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.species}
-                  {p.client ? ` · ${p.client.first_name} ${p.client.last_name}` : ''})
-                </option>
-              ))}
-            </select>
+            {patients.length === 0 ? (
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-center space-y-2.5">
+                <p className="text-xs font-semibold text-[#0057D9]">No patient profiles found yet.</p>
+                {onNavigateToPatients && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToPatients}
+                    className="btn btn-primary text-xs font-bold px-4 py-2 cursor-pointer inline-flex items-center shadow-xs"
+                  >
+                    + Create a patient profile first
+                  </button>
+                )}
+              </div>
+            ) : (
+              <select
+                className="w-full px-4 py-3 border border-[#e3eaf6] rounded-xl text-xs text-[#04044A] bg-white focus:outline-none focus:border-[#00A4FF] focus:ring-4 focus:ring-[#00A4FF]/10 font-semibold"
+                value={patientId}
+                onChange={(e) => setPatientId(e.target.value)}
+                required
+              >
+                <option value="">Select a patient…</option>
+                {patients.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.species}
+                    {p.owner_name || p.ownerName ? ` · Owner: ${p.owner_name || p.ownerName}` : ''}
+                    {p.client ? ` · ${p.client.first_name} ${p.client.last_name}` : ''})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>

@@ -370,6 +370,7 @@ export default function App() {
             appointments={appointments}
             onAddAppointment={handleAddAppointment}
             vetName={vetName}
+            onNavigateToPatients={() => navigateTo('patients')}
           />
         );
       case 'patients':
